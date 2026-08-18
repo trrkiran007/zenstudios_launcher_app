@@ -25,6 +25,7 @@ For installation and the technical side, see the [README](../README.md).
 14. [Backing up your data](#14-backing-up-your-data)
 15. [Keyboard shortcuts](#15-keyboard-shortcuts)
 16. [Troubleshooting](#16-troubleshooting)
+17. [Sharing with your team](#17-sharing-with-your-team)
 
 ---
 
@@ -134,7 +135,9 @@ The right-hand panel updates as you type:
 
 - **Totals** — subtotal, discount, taxable value, the tax split, and the grand total.
 - **Profitability** — revenue excluding GST, cost of items, gross profit and margin, with a bar that
-  turns amber below 15%. This panel is internal and never appears on any printed document.
+  turns amber below 15%. This panel is internal and never appears on any printed document. Margin
+  shows **—** when the document carries no cost prices at all, which is normal on a quotation someone
+  shared with you.
 
 A document-level discount (percentage or amount) is spread across the lines in proportion to their
 value, so each line still carries the right tax.
@@ -335,6 +338,16 @@ B2B Procurement each have their own tab. Quotations are built by picking from it
 With a few hundred items, use the **category dropdown** beside the search box to narrow to Wardrobe,
 Signage & Branding, Beds & Bedroom and so on.
 
+Two categories are worth knowing about because they are easy to forget to quote:
+
+- **Professional** holds the design fee, tiered by home size (2BHK, 3BHK, 4BHK/duplex, villa) plus a
+  per-sq.ft option and a charge for revision rounds beyond those included. Full design service in
+  this market is billed at roughly 4–5% of project value — the tiers are set to land there, so use
+  them in preference to the flat lump-sum line, which is really only for small or single-room jobs.
+- **Site Protection & Services** holds floor protection, door and window protection, dust
+  barricading, product cleaning and debris removal. These are real costs on every job. Quote them as
+  lines rather than absorbing them into overheads — and hold them out of any project discount.
+
 Each item has a name, category, unit, **selling rate**, **cost price**, HSN/SAC, GST rate, and a
 specification note that carries into the quotation line. B2B items also have SKU and brand.
 
@@ -480,6 +493,74 @@ app is never affected: it renders PDFs with its own engine.
 **The Mac app will not open ("unidentified developer")** — right-click the app → Open → Open. Once only.
 
 **Starting fresh** — `npm run db:reset` wipes everything and reseeds a clean install. There is no undo.
+
+---
+
+## 17. Sharing with your team
+
+Until the app moves to a shared server, each install keeps its own database. Work travels between
+machines as a **`.zns` file** — an ordinary text file the app writes and reads, which you hand over
+however you like: email, WhatsApp, shared drive, USB stick. Nothing goes through the internet.
+
+There are two kinds, and the app tells them apart on its own.
+
+### Setting up a new team member
+
+**Settings → Share & transfer → Export setup file.**
+
+The file carries your company identity, logo, every line of business with its pipeline stages, and —
+if you tick **Include the rate card** — your full catalog with cost prices.
+
+They install ZenStudios, open **Settings → Share & transfer → Open a setup file**, pick it, and their
+app is configured exactly like yours. It takes a few seconds.
+
+> **This file contains your GSTIN, CIN, PAN, bank details and your buying prices.** Send it only to
+> your own team, and prefer a channel you control. If you only want to pass on the pipeline and
+> company details, untick the rate card first.
+
+Applying a setup file is **add-only**. Your company details are overwritten, but any catalog item or
+line of business that already exists is left exactly as it is — rates you have corrected are never
+reset. So it is safe to re-apply a newer setup file later to pick up items you have added since.
+
+### Sharing a quotation
+
+Open the quotation, then **Share as file**.
+
+You choose whether to include cost prices. It is **off by default**:
+
+| Setting | What the file contains | Send it to |
+|---|---|---|
+| Off (default) | Description, quantity, rate, GST, totals | Anyone on the team who needs the quotation |
+| On | The above plus your buying price on every line | Only people allowed to see margins |
+
+Your colleague opens it from **Quotations → Open a shared file**, or from
+**Settings → Share & transfer**.
+
+### What happens when a quotation is opened
+
+The receiving app does not copy your document — it builds a fresh one:
+
+- It is issued a **new quotation number** from *their* series, and starts as a **draft**.
+- The client is **matched by name**, or created if they do not have them yet.
+- **GST is recalculated** against their own place of supply, so if they are in a different state the
+  document correctly becomes IGST instead of CGST + SGST.
+- A note is added to the document recording where it came from.
+- Your original is untouched.
+
+If cost prices were stripped, the margin column shows **—** rather than a misleading 100% until
+someone fills them in.
+
+### Double-clicking a file
+
+The Mac app registers itself as the handler for `.zns`, so double-clicking one in Finder opens
+ZenStudios and imports it straight away — a shared quotation opens on screen, a setup file applies
+itself and tells you what changed.
+
+### One rule worth agreeing on
+
+Two people who open the same quotation each end up with their **own copy**. There is no merge. Decide
+who owns a document before it is shared, and let that person hold the master until the app moves to a
+shared server — at which point this whole step disappears.
 
 ---
 

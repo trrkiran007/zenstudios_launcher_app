@@ -10,7 +10,9 @@ builder-debug.yml
 
 # ---- your live data and secrets: never commit these ----
 # The database, attachments, uploaded logo and stored API key.
-data/
+# Anchored to the repo root: an unanchored "data/" would also swallow
+# server/src/data/, which holds the seed catalogs and must be committed.
+/data/
 server/.env
 # Company identity: CIN, PAN, TAN and contact details.
 # Copy server/company.example.json to server/company.json and fill it in.

@@ -261,6 +261,27 @@ Back up the `data/` folder and you have backed up everything.
 
 ---
 
+## Sharing between machines — `.zns` files
+
+Each install has its own database, so setup and documents move as **`.zns` files** (JSON under the
+extension). Two kinds, distinguished by a `kind` field the app reads:
+
+| Kind | Written by | Carries |
+|---|---|---|
+| `zenstudios.setup` | Settings → Share & transfer → Export setup file | Organisation, logo, business types with stages, optionally the catalog |
+| `zenstudios.quotation` | A quotation's **Share as file** | One quotation with its sections, lines, client and terms |
+
+Endpoints are under `/api/transfer`. Two properties matter:
+
+- **Setup import is add-only.** The organisation record is overwritten; business types and catalog
+  items that already exist are never modified, so corrected rates survive re-import.
+- **A quotation import is a rebuild, not a copy.** The receiving install issues its own number,
+  matches or creates the client, and recomputes every total against its own place of supply — so a
+  document crossing a state boundary correctly flips between CGST + SGST and IGST.
+
+Cost prices are opt-in on quotation export (`?costs=1`) and opt-out on setup export. The Mac app
+registers `.zns` as a file association and imports on `open-file`, so double-clicking one works.
+
 ## Moving off this machine later
 
 The app was built local-first but not painted into a corner:

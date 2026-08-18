@@ -150,6 +150,91 @@ async function renderPdfWithElectron(html: string): Promise<Buffer> {
   }
 }
 
+/* --------------------------- .zns file opening --------------------------- */
+
+/**
+ * Files double-clicked in Finder arrive here. macOS can deliver them before the
+ * app is ready, so they queue until there is a window and a server to talk to.
+ */
+const pendingFiles: string[] = [];
+let readyForFiles = false;
+
+function queueFile(filePath: string) {
+  if (!filePath.toLowerCase().endsWith('.zns') && !filePath.toLowerCase().endsWith('.json')) return;
+  pendingFiles.push(filePath);
+  if (readyForFiles) void drainPendingFiles();
+}
+
+/** Base URL of whichever server this window is pointed at. */
+function apiBase(): string | null {
+  if (server) return server.url;
+  const { mode, remoteUrl } = readSettings(DATA_DIR);
+  return mode === 'remote' && remoteUrl.trim() ? remoteUrl.trim().replace(/\/$/, '') : null;
+}
+
+async function drainPendingFiles() {
+  while (pendingFiles.length) {
+    const filePath = pendingFiles.shift()!;
+    await openTransferFile(filePath);
+  }
+}
+
+async function openTransferFile(filePath: string) {
+  const base = apiBase();
+  const name = path.basename(filePath);
+
+  if (!base || !mainWindow) {
+    dialog.showErrorBox('ZenStudios', `Could not open ${name} — the app is not connected to a server yet.`);
+    return;
+  }
+
+  let file: { kind?: string };
+  try {
+    file = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    dialog.showErrorBox('ZenStudios', `${name} could not be read. It may be damaged or not a ZenStudios file.`);
+    return;
+  }
+
+  const post = async (route: string) => {
+    const res = await fetch(`${base}/api/transfer/${route}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(file),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error ?? `The server rejected ${name}.`);
+    return payload;
+  };
+
+  try {
+    if (file.kind === 'zenstudios.quotation') {
+      const created = (await post('quotation')) as { id: string; number: string };
+      await mainWindow.loadURL(`${base}/quotations/${created.id}`);
+      mainWindow.focus();
+    } else if (file.kind === 'zenstudios.setup') {
+      const applied = (await post('setup')) as {
+        businessTypes: number; stages: number; catalogItems: number; organization: boolean;
+      };
+      await mainWindow.loadURL(`${base}/settings`);
+      mainWindow.focus();
+      await dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        message: 'Setup applied',
+        detail:
+          `Company details ${applied.organization ? 'updated' : 'unchanged'}.\n` +
+          `${applied.businessTypes} line(s) of business and ${applied.catalogItems} catalog item(s) added.\n\n` +
+          'Rates you had already were left untouched.',
+        buttons: ['OK'],
+      });
+    } else {
+      dialog.showErrorBox('ZenStudios', `${name} is not a ZenStudios quotation or setup file.`);
+    }
+  } catch (err) {
+    dialog.showErrorBox('ZenStudios', err instanceof Error ? err.message : `Could not open ${name}.`);
+  }
+}
+
 /* ------------------------------- window --------------------------------- */
 
 async function resolveStartUrl(): Promise<string> {
@@ -350,16 +435,25 @@ function buildMenu() {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    for (const arg of argv.slice(1)) if (arg.toLowerCase().endsWith('.zns')) queueFile(arg);
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     }
   });
 
+  // Registered before whenReady: macOS delivers open-file very early.
+  app.on('open-file', (event, filePath) => {
+    event.preventDefault();
+    queueFile(filePath);
+  });
+
   app.whenReady().then(async () => {
     buildMenu();
     await createWindow();
+    readyForFiles = true;
+    void drainPendingFiles();
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) void createWindow();
     });

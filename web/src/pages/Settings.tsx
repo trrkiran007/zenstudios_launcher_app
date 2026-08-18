@@ -1,16 +1,20 @@
-import { Building2, Check, Image, Plus, Save, Sparkles, Trash2, Workflow } from 'lucide-react';
+import {
+  Building2, Check, Download, Image, Plus, Save, Share2, Sparkles, Trash2, Upload, Workflow,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Badge, Button, Card, Checkbox, Field, Input, Loading, Modal, PageHeader,
   Select, Tabs, Textarea, useAction,
 } from '../components/ui';
 import { api } from '../lib/api';
 import { useApp } from '../lib/app-context';
-import type { BusinessType, Organization, PipelineStage } from '../lib/types';
+import { downloadFile, expectKind, pickTransferFile, stamp } from '../lib/transfer';
+import type { BusinessType, Organization, PipelineStage, Quotation } from '../lib/types';
 
 export function Settings() {
   const { org, businessTypes, system, states, refresh, loading } = useApp();
-  const [tab, setTab] = useState<'company' | 'bank' | 'business' | 'ai'>('company');
+  const [tab, setTab] = useState<'company' | 'bank' | 'business' | 'transfer' | 'ai'>('company');
 
   if (loading || !org) return <Loading />;
 
@@ -24,6 +28,7 @@ export function Settings() {
             { value: 'company', label: 'Company & documents' },
             { value: 'bank', label: 'Bank & terms' },
             { value: 'business', label: 'Lines of business', count: businessTypes.length },
+            { value: 'transfer', label: 'Share & transfer' },
             { value: 'ai', label: 'AI & system' },
           ]}
         />
@@ -32,6 +37,7 @@ export function Settings() {
       {tab === 'company' && <CompanyTab org={org} states={states} onSaved={refresh} />}
       {tab === 'bank' && <BankTab org={org} onSaved={refresh} />}
       {tab === 'business' && <BusinessTab types={businessTypes} onSaved={refresh} />}
+      {tab === 'transfer' && <TransferTab org={org} onSaved={refresh} />}
       {tab === 'ai' && <AiTab system={system} onSaved={refresh} />}
     </>
   );
@@ -605,6 +611,119 @@ function StageEditor({
 }
 
 /* ---------------------------------- ai ---------------------------------- */
+
+/* ---------------------------- share & transfer -------------------------- */
+
+function TransferTab({ org, onSaved }: { org: Organization; onSaved: () => Promise<void> }) {
+  const navigate = useNavigate();
+  const { run, busy } = useAction();
+  const [withCatalog, setWithCatalog] = useState(true);
+  const [applied, setApplied] = useState<null | {
+    organization: boolean; businessTypes: number; stages: number; catalogItems: number; logo: boolean;
+  }>(null);
+
+  const exportSetup = () =>
+    run(async () => {
+      const file = await api.get<unknown>(`/transfer/setup?catalog=${withCatalog ? '1' : '0'}`);
+      downloadFile(`ZenStudios-setup-${stamp()}`, file);
+    }, 'Setup file downloaded');
+
+  const importSetup = () =>
+    run(async () => {
+      const picked = await pickTransferFile();
+      if (!picked) return;
+      const file = expectKind(picked, 'zenstudios.setup', 'setup file');
+      const result = await api.post<typeof applied>('/transfer/setup', file);
+      setApplied(result);
+      await onSaved();
+    }, 'Setup applied');
+
+  const importQuotation = () =>
+    run(async () => {
+      const picked = await pickTransferFile();
+      if (!picked) return;
+      const file = expectKind(picked, 'zenstudios.quotation', 'quotation file');
+      const created = await api.post<Quotation>('/transfer/quotation', file);
+      navigate(`/quotations/${created.id}`);
+    }, 'Quotation imported');
+
+  return (
+    <div className="space-y-5">
+      <Card
+        title="Set up a new team member"
+        subtitle="Everything they need to start quoting, in one file"
+      >
+        <p className="mb-4 text-sm text-slate-600">
+          The setup file carries your company identity, logo, lines of business with their pipeline
+          stages, and — if you include it — your full rate card. A colleague installs ZenStudios,
+          opens this <code className="rounded bg-slate-100 px-1 py-0.5 text-[0.8em]">.zns</code> file
+          here, and their app is configured exactly like yours.
+        </p>
+
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-900">
+            The file contains {org.legalName}&rsquo;s GSTIN, CIN, PAN and bank details, and the rate
+            card includes your <strong>cost prices</strong>. Send it only to your own team.
+          </p>
+        </div>
+
+        <Checkbox
+          checked={withCatalog}
+          onChange={setWithCatalog}
+          label="Include the rate card (leave off to share only identity and pipeline setup)"
+        />
+
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          <Button variant="primary" icon={<Download className="size-4" />} disabled={busy} onClick={exportSetup}>
+            Export setup file
+          </Button>
+          <Button icon={<Upload className="size-4" />} disabled={busy} onClick={importSetup}>
+            Open a setup file
+          </Button>
+        </div>
+
+        {applied && (
+          <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3">
+            <p className="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-800">
+              <Check className="size-4 text-brand-600" /> Setup applied
+            </p>
+            <ul className="space-y-0.5 text-sm text-slate-600">
+              <li>Company details {applied.organization ? 'updated' : 'unchanged'}{applied.logo ? ', logo installed' : ''}</li>
+              <li>{applied.businessTypes} line(s) of business added, with {applied.stages} pipeline stage(s)</li>
+              <li>{applied.catalogItems} new catalog item(s) added</li>
+            </ul>
+            <p className="mt-2 text-xs text-slate-500">
+              Existing catalog items and rates you had already were left untouched.
+            </p>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Receive a quotation from a colleague"
+        subtitle="Open a quotation someone else exported"
+      >
+        <p className="mb-4 text-sm text-slate-600">
+          Ask them to open the quotation and use <strong>Share as file</strong>, then send you the{' '}
+          <code className="rounded bg-slate-100 px-1 py-0.5 text-[0.8em]">.zns</code> file. Opening it here
+          creates a fresh draft under <em>your</em> quotation number, matched to the client by name,
+          with GST recalculated against your own place of supply. Their document is untouched.
+        </p>
+        <Button icon={<Share2 className="size-4" />} disabled={busy} onClick={importQuotation}>
+          Open a quotation file
+        </Button>
+      </Card>
+
+      <Card title="Until you move to a shared server">
+        <p className="text-sm text-slate-600">
+          Each install keeps its own database, so these files are how work travels between machines
+          today. Two people editing the same quotation will each hold their own copy — agree who owns
+          a document before sharing it. When the app moves to a shared server this step disappears.
+        </p>
+      </Card>
+    </div>
+  );
+}
 
 function AiTab({ system, onSaved }: { system: ReturnType<typeof useApp>['system']; onSaved: () => Promise<void> }) {
   const { run, busy } = useAction();

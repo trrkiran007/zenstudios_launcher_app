@@ -27,6 +27,17 @@ extraResources:
 
 asar: true
 
+# Double-clicking a .zns file (a shared quotation or a setup file) opens it in
+# ZenStudios. The contents are JSON; the extension is ours so Finder can route it.
+fileAssociations:
+  - ext: zns
+    name: ZenStudios file
+    description: ZenStudios quotation or setup file
+    role: Editor
+    rank: Owner
+    mimeType: application/json
+
+
 mac:
   icon: resources/icon.icns
   category: public.app-category.business

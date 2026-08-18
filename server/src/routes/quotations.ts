@@ -104,6 +104,62 @@ function nestedSectionCreate(sections: z.infer<typeof sectionSchema>[]) {
   }));
 }
 
+/**
+ * Recompute and persist a quotation's totals from whatever is stored against
+ * it. Used after an import, where the incoming file's figures are treated as
+ * untrusted — the receiving install's own GST setup decides the numbers.
+ */
+export async function recalculateQuotation(id: string) {
+  const quote = await prisma.quotation.findUnique({
+    where: { id },
+    include: {
+      client: true,
+      sections: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } },
+    },
+  });
+  if (!quote) throw notFound('Quotation');
+  const org = await getOrg();
+
+  const totals = computeTotals({
+    sections: quote.sections,
+    taxMode: quote.taxMode,
+    flatGstRate: quote.flatGstRate,
+    discountType: quote.discountType,
+    discountValue: quote.discountValue,
+    supplierStateCode: org.stateCode,
+    placeOfSupplyCode: quote.placeOfSupplyCode || quote.client.stateCode,
+  });
+
+  await prisma.$transaction([
+    ...quote.sections.flatMap((section) =>
+      section.items.map((item, i) =>
+        prisma.quotationItem.update({
+          where: { id: item.id },
+          data: { amount: lineAmount(item), order: i },
+        }),
+      ),
+    ),
+    prisma.quotation.update({
+      where: { id },
+      data: {
+        subtotal: totals.subtotal,
+        discountAmount: totals.discountAmount,
+        taxableValue: totals.taxableValue,
+        cgst: totals.cgst,
+        sgst: totals.sgst,
+        igst: totals.igst,
+        roundOff: totals.roundOff,
+        grandTotal: totals.grandTotal,
+        totalCost: totals.totalCost,
+        grossProfit: totals.grossProfit,
+        marginPct: totals.marginPct,
+      },
+    }),
+  ]);
+
+  return prisma.quotation.findUnique({ where: { id }, include: fullInclude });
+}
+
 quotationsRouter.get(
   '/',
   h(async (req, res) => {

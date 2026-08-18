@@ -1,4 +1,4 @@
-import { Archive, Copy, FileText, GitBranch, Plus, Search } from 'lucide-react';
+import { Archive, Copy, FileText, GitBranch, Plus, Search, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -8,6 +8,7 @@ import {
 import { api, useApi } from '../lib/api';
 import { useActiveBusinessTypes } from '../lib/app-context';
 import { date, money, pct } from '../lib/format';
+import { expectKind, pickTransferFile } from '../lib/transfer';
 import type { Quotation } from '../lib/types';
 
 const STATUSES = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'SUPERSEDED'];
@@ -54,6 +55,15 @@ export function Quotations() {
       navigate(`/quotations/${rev.id}/edit`);
     }, 'Revision created');
 
+  const importQuotation = () =>
+    run(async () => {
+      const picked = await pickTransferFile();
+      if (!picked) return;
+      const file = expectKind(picked, 'zenstudios.quotation', 'quotation file');
+      const created = await api.post<Quotation>('/transfer/quotation', file);
+      navigate(`/quotations/${created.id}`);
+    }, 'Quotation imported');
+
   const toggleArchive = (row: Quotation) =>
     run(async () => {
       await api.patch(`/quotations/${row.id}/archive`, { archive: !row.archivedAt });
@@ -66,9 +76,14 @@ export function Quotations() {
         title="Quotations"
         subtitle={`${totals.count} shown · ${money(totals.value)} quoted · ${money(totals.won)} accepted`}
         actions={
-          <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => navigate('/quotations/new')}>
-            New quotation
-          </Button>
+          <>
+            <Button icon={<Upload className="size-4" />} disabled={busy} onClick={importQuotation}>
+              Open a shared file
+            </Button>
+            <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => navigate('/quotations/new')}>
+              New quotation
+            </Button>
+          </>
         }
       >
         <Tabs
@@ -168,8 +183,19 @@ export function Quotations() {
                   </Td>
                   <Td>{date(row.quoteDate)}</Td>
                   <Td align="right" className="font-medium text-slate-900">{money(row.grandTotal)}</Td>
-                  <Td align="right" className={row.marginPct < 15 ? 'text-amber-600' : 'text-slate-600'}>
-                    {pct(row.marginPct)}
+                  <Td
+                    align="right"
+                    className={
+                      !row.totalCost ? 'text-slate-400'
+                        : row.marginPct < 15 ? 'text-amber-600'
+                        : 'text-slate-600'
+                    }
+                  >
+                    {row.totalCost ? (
+                      pct(row.marginPct)
+                    ) : (
+                      <span title="No cost prices on this quotation yet">—</span>
+                    )}
                   </Td>
                   <Td><StatusBadge status={row.status} /></Td>
                   <Td>

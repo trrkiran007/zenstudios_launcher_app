@@ -1,15 +1,17 @@
 import {
   ArrowLeft, ArrowRight, Copy, Download, FileText, GitBranch, Pencil, Printer, Receipt, Rocket,
+  Share2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  Badge, Button, Card, ErrorState, Field, Input, Loading, Modal, Select,
+  Badge, Button, Card, Checkbox, ErrorState, Field, Input, Loading, Modal, Select,
   StatusBadge, Table, Td, Th, Textarea, useAction,
 } from '../components/ui';
 import { api, useApi } from '../lib/api';
 import { useApp } from '../lib/app-context';
 import { date, dateTime, money, num, pct } from '../lib/format';
+import { downloadFile, slug, stamp } from '../lib/transfer';
 import type { Invoice, Note, Project, Quotation } from '../lib/types';
 
 const NEXT_STATUS: Record<string, { value: string; label: string }[]> = {
@@ -33,6 +35,8 @@ export function QuotationView() {
   const { data: q, loading, error, reload } = useApi<Quotation & { notesLog?: Note[] }>(`/quotations/${id}`, [id]);
 
   const [converting, setConverting] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareCosts, setShareCosts] = useState(false);
   const [invoicing, setInvoicing] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [invoiceMode, setInvoiceMode] = useState<'FULL' | 'MILESTONE'>('FULL');
@@ -79,6 +83,15 @@ export function QuotationView() {
       await reload();
     }, 'Note added');
 
+  const shareAsFile = () =>
+    run(async () => {
+      const file = await api.get<unknown>(
+        `/transfer/quotation/${q.id}?costs=${shareCosts ? '1' : '0'}`,
+      );
+      downloadFile(`${slug(q.number)}-${stamp()}`, file);
+      setSharing(false);
+    }, 'Quotation file downloaded');
+
   const isIntra = q.igst === 0;
 
   return (
@@ -119,6 +132,9 @@ export function QuotationView() {
               PDF
             </Button>
           )}
+          <Button size="sm" icon={<Share2 className="size-4" />} onClick={() => setSharing(true)}>
+            Share as file
+          </Button>
           <Button size="sm" icon={<Pencil className="size-4" />} onClick={() => navigate(`/quotations/${q.id}/edit`)}>
             Edit
           </Button>
@@ -251,7 +267,7 @@ export function QuotationView() {
             <dl className="tnum space-y-1.5 text-sm">
               <Row label="Cost" value={money(q.totalCost)} />
               <Row label="Gross profit" value={money(q.grossProfit)} />
-              <Row label="Margin" value={pct(q.marginPct)} />
+              <Row label="Margin" value={q.totalCost ? pct(q.marginPct) : '—'} />
             </dl>
           </Card>
 
@@ -333,6 +349,38 @@ export function QuotationView() {
           )}
         </div>
       </div>
+
+      <Modal
+        open={sharing}
+        onClose={() => setSharing(false)}
+        title="Share this quotation as a file"
+        description="Creates a .zns file a colleague can open in their own copy of ZenStudios."
+        footer={
+          <>
+            <Button onClick={() => setSharing(false)}>Cancel</Button>
+            <Button variant="primary" loading={busy} onClick={shareAsFile}>Download file</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          They will get {q.number} as a fresh draft under their own quotation number, with the client
+          matched by name and GST recalculated for their place of supply. Nothing about this document
+          changes.
+        </p>
+
+        <div className="mt-4">
+          <Checkbox
+            checked={shareCosts}
+            onChange={setShareCosts}
+            label="Include cost prices and margins"
+          />
+          <p className="mt-1.5 text-xs text-slate-500">
+            {shareCosts
+              ? 'The file will carry your buying prices. Only send it to someone who is allowed to see margins.'
+              : 'Cost prices are stripped out. Safe to send to anyone who needs the quotation itself.'}
+          </p>
+        </div>
+      </Modal>
 
       <Modal
         open={converting}
