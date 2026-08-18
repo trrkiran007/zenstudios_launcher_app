@@ -1,0 +1,24 @@
+{
+  "name": "zen-desktop",
+  "version": "1.2.0",
+  "private": true,
+  "description": "ZenStudios desktop shell",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build:main": "esbuild src/main.ts --bundle --platform=node --format=cjs --target=node20 --external:electron --outfile=dist/main.cjs",
+    "build:db": "node scripts/build-template-db.mjs",
+    "build": "npm run build:main && npm run build:db && npm run build:runtime",
+    "start": "npm run build:main && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder && node scripts/where.mjs",
+    "build:runtime": "node scripts/stage-runtime.mjs",
+    "import-data": "node scripts/import-data.mjs",
+    "where": "node scripts/where.mjs"
+  },
+  "devDependencies": {
+    "electron": "43.4.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2"
+  },
+  "author": "OMHOME SERVICES PRIVATE LIMITED"
+}

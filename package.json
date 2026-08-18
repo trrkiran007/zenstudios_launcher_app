@@ -1,0 +1,42 @@
+{
+  "name": "zenstudios-quotes",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Quotation, project and margin management for ZenStudios (OMHome Services Pvt Ltd)",
+  "workspaces": [
+    "server",
+    "web",
+    "desktop"
+  ],
+  "scripts": {
+    "setup": "npm install && npm run db:push && npm run seed",
+    "db:push": "npm run db:push -w server",
+    "db:studio": "npm run studio -w server",
+    "db:reset": "npm run db:reset -w server",
+    "seed": "npm run seed -w server",
+    "dev": "concurrently -n api,web -c green,cyan \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w web",
+    "start": "npm run build && npm run start -w server",
+    "build:server": "npm run build -w server",
+    "app": "npm run build && npm run build:server && npm run start -w desktop",
+    "app:dist": "npm run build && npm run build:server && npm run dist -w desktop",
+    "app:import-data": "npm run import-data -w desktop",
+    "catalog:sync": "npm run catalog:sync -w server",
+    "catalog:sync:app": "npm run catalog:sync:app -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.28.2": true,
+    "prisma@6.19.3": true,
+    "puppeteer@25.7.0": true,
+    "fsevents@2.3.3": true,
+    "electron@43.4.0": true
+  }
+}

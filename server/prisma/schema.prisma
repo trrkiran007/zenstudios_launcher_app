@@ -1,0 +1,465 @@
+// ZenStudios quotation & delivery platform.
+//
+// Local-first: SQLite today. To move to a hosted Postgres later, change the
+// datasource provider to "postgresql" and point DATABASE_URL at the server —
+// every model below is provider-neutral (no SQLite-only types are used).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Single-row table holding the company identity used on every document.
+model Organization {
+  id            String  @id @default("org")
+  brandName     String  @default("ZenStudios")
+  legalName     String  @default("OMHOME SERVICES PRIVATE LIMITED")
+  trademarkLine String?
+  cin           String?
+  pan           String?
+  tan           String?
+  gstin         String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  state         String?
+  stateCode     String?
+  pincode       String?
+  country       String  @default("India")
+  email         String?
+  phone         String?
+  altPhone      String?
+  website       String?
+
+  logoPath   String?
+  brandColor String @default("#16A34A")
+  accentColor String @default("#111827")
+
+  bankName        String?
+  bankAccountName String?
+  bankAccountNo   String?
+  bankIfsc        String?
+  bankBranch      String?
+  upiId           String?
+
+  defaultTerms        String?
+  defaultInvoiceTerms String?
+  defaultValidityDays Int     @default(15)
+  invoicePrefix       String  @default("ZS/INV")
+  proformaPrefix      String  @default("ZS/PI")
+
+  updatedAt DateTime @updatedAt
+}
+
+/// A line of business. Adding a new one here unlocks a whole new quotation
+/// stream (numbering, pipeline, catalog, reports) without code changes.
+model BusinessType {
+  id              String  @id @default(cuid())
+  key             String  @unique
+  name            String
+  shortCode       String // used inside document numbers, e.g. INT / B2B
+  layout          String  @default("SECTIONED") // SECTIONED = grouped (rooms/areas) | FLAT = single item table
+  sectionLabel    String  @default("Section") // "Room" for interiors, "Group" for procurement
+  description     String?
+  color           String  @default("#16A34A")
+  active          Boolean @default(true)
+  order           Int     @default(0)
+  enableBenchmark Boolean @default(false)
+  defaultTerms    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  stages       PipelineStage[]
+  quotations   Quotation[]
+  projects     Project[]
+  catalogItems CatalogItem[]
+}
+
+model PipelineStage {
+  id             String  @id @default(cuid())
+  businessTypeId String
+  name           String
+  order          Int
+  color          String  @default("#64748B")
+  isTerminal     Boolean @default(false)
+  isWon          Boolean @default(false)
+
+  businessType BusinessType @relation(fields: [businessTypeId], references: [id], onDelete: Cascade)
+  projects     Project[]
+
+  @@unique([businessTypeId, name])
+}
+
+model Client {
+  id            String  @id @default(cuid())
+  name          String
+  kind          String  @default("COMPANY") // COMPANY | INDIVIDUAL
+  contactPerson String?
+  email         String?
+  phone         String?
+  altPhone      String?
+  gstin         String?
+  pan           String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  state         String?
+  stateCode     String?
+  pincode       String?
+  notes         String?
+  archived      Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  quotations Quotation[]
+  projects   Project[]
+  invoices   Invoice[]
+}
+
+/// Reusable rate card (interiors) / product master (procurement).
+model CatalogItem {
+  id             String  @id @default(cuid())
+  businessTypeId String
+  name           String
+  sku            String?
+  brand          String?
+  category       String?
+  unit           String  @default("Nos")
+  defaultRate    Float   @default(0)
+  costPrice      Float   @default(0)
+  hsnSac         String?
+  gstRate        Float   @default(18)
+  specNote       String?
+  active         Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessType BusinessType @relation(fields: [businessTypeId], references: [id], onDelete: Cascade)
+}
+
+model Quotation {
+  id             String  @id @default(cuid())
+  number         String  @unique
+  version        Int     @default(1)
+  parentId       String?
+  businessTypeId String
+  clientId       String
+  title          String
+  status         String  @default("DRAFT") // DRAFT | SENT | ACCEPTED | REJECTED | EXPIRED | SUPERSEDED
+  quoteDate      DateTime @default(now())
+  validUntil     DateTime?
+
+  taxMode            String  @default("FULL_GST") // FULL_GST | FLAT
+  flatGstRate        Float   @default(18)
+  placeOfSupplyState String?
+  placeOfSupplyCode  String?
+
+  discountType  String @default("NONE") // NONE | PERCENT | AMOUNT
+  discountValue Float  @default(0)
+
+  notes     String?
+  termsText String?
+
+  subtotal       Float @default(0)
+  discountAmount Float @default(0)
+  taxableValue   Float @default(0)
+  cgst           Float @default(0)
+  sgst           Float @default(0)
+  igst           Float @default(0)
+  roundOff       Float @default(0)
+  grandTotal     Float @default(0)
+  totalCost      Float @default(0)
+  grossProfit    Float @default(0)
+  marginPct      Float @default(0)
+
+  sentAt     DateTime?
+  decidedAt  DateTime?
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  businessType BusinessType       @relation(fields: [businessTypeId], references: [id])
+  client       Client             @relation(fields: [clientId], references: [id])
+  parent       Quotation?         @relation("Revisions", fields: [parentId], references: [id])
+  revisions    Quotation[]        @relation("Revisions")
+  sections     QuotationSection[]
+  project      Project?
+  invoices     Invoice[]
+  notesLog     Note[]
+  attachments  Attachment[]
+}
+
+model QuotationSection {
+  id          String  @id @default(cuid())
+  quotationId String
+  name        String
+  order       Int     @default(0)
+  notes       String?
+
+  quotation Quotation       @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  items     QuotationItem[]
+}
+
+model QuotationItem {
+  id            String  @id @default(cuid())
+  sectionId     String
+  order         Int     @default(0)
+  catalogItemId String?
+  description   String
+  specNote      String?
+  hsnSac        String?
+  unit          String  @default("Nos")
+  quantity      Float   @default(1)
+  rate          Float   @default(0)
+  costPrice     Float   @default(0)
+  discountPct   Float   @default(0)
+  gstRate       Float   @default(18)
+  amount        Float   @default(0)
+
+  section QuotationSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
+
+/// A converted opportunity being delivered.
+model Project {
+  id             String  @id @default(cuid())
+  code           String  @unique
+  name           String
+  businessTypeId String
+  clientId       String
+  quotationId    String? @unique
+  stageId        String
+  status         String  @default("ACTIVE") // ACTIVE | ON_HOLD | COMPLETED | CANCELLED
+  contractValue  Float   @default(0)
+  estimatedCost  Float   @default(0)
+  description    String?
+  startDate      DateTime?
+  targetDate     DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessType BusinessType  @relation(fields: [businessTypeId], references: [id])
+  client       Client        @relation(fields: [clientId], references: [id])
+  quotation    Quotation?    @relation(fields: [quotationId], references: [id])
+  stage        PipelineStage @relation(fields: [stageId], references: [id])
+  tasks        Task[]
+  notesLog     Note[]
+  attachments  Attachment[]
+  expenses     Expense[]
+  invoices     Invoice[]
+  stageEvents  StageEvent[]
+}
+
+model StageEvent {
+  id        String   @id @default(cuid())
+  projectId String
+  fromStage String?
+  toStage   String
+  note      String?
+  author    String   @default("Me")
+  changedAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id          String  @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  assignee    String?
+  status      String  @default("TODO") // TODO | IN_PROGRESS | BLOCKED | DONE
+  priority    String  @default("MEDIUM") // LOW | MEDIUM | HIGH | URGENT
+  dueDate     DateTime?
+  order       Int     @default(0)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  notesLog    Note[]
+  attachments Attachment[]
+}
+
+model Note {
+  id          String  @id @default(cuid())
+  body        String
+  author      String  @default("Me")
+  kind        String  @default("NOTE") // NOTE | STAGE_CHANGE | SYSTEM
+  quotationId String?
+  projectId   String?
+  taskId      String?
+  createdAt   DateTime @default(now())
+
+  quotation   Quotation?   @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task        Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
+}
+
+model Attachment {
+  id                String  @id @default(cuid())
+  filename          String
+  originalName      String
+  mimeType          String
+  size              Int
+  caption           String?
+  quotationId       String?
+  projectId         String?
+  taskId            String?
+  noteId            String?
+  expenseId         String?
+  competitorQuoteId String?
+  createdAt         DateTime @default(now())
+
+  quotation       Quotation?       @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task            Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  note            Note?            @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  expense         Expense?         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  competitorQuote CompetitorQuote? @relation(fields: [competitorQuoteId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id            String  @id @default(cuid())
+  projectId     String
+  date          DateTime @default(now())
+  category      String   @default("Material")
+  vendor        String?
+  description   String?
+  amount        Float    @default(0)
+  gstAmount     Float    @default(0)
+  billable      Boolean  @default(false)
+  paymentStatus String   @default("PAID") // PAID | UNPAID | PARTIAL
+  reference     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
+}
+
+model Invoice {
+  id          String  @id @default(cuid())
+  number      String  @unique
+  type        String  @default("TAX") // PROFORMA | TAX
+  projectId   String?
+  quotationId String?
+  clientId    String
+  issueDate   DateTime @default(now())
+  dueDate     DateTime?
+
+  taxMode            String  @default("FULL_GST")
+  flatGstRate        Float   @default(18)
+  placeOfSupplyState String?
+  placeOfSupplyCode  String?
+
+  discountType  String @default("NONE")
+  discountValue Float  @default(0)
+
+  subtotal       Float @default(0)
+  discountAmount Float @default(0)
+  taxableValue   Float @default(0)
+  cgst           Float @default(0)
+  sgst           Float @default(0)
+  igst           Float @default(0)
+  roundOff       Float @default(0)
+  grandTotal     Float @default(0)
+  amountPaid     Float @default(0)
+
+  status    String  @default("DRAFT") // DRAFT | ISSUED | PARTIALLY_PAID | PAID | CANCELLED
+  notes     String?
+  termsText String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project?      @relation(fields: [projectId], references: [id])
+  quotation Quotation?    @relation(fields: [quotationId], references: [id])
+  client    Client        @relation(fields: [clientId], references: [id])
+  items     InvoiceItem[]
+  payments  Payment[]
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  order       Int     @default(0)
+  description String
+  specNote    String?
+  hsnSac      String?
+  unit        String  @default("Nos")
+  quantity    Float   @default(1)
+  rate        Float   @default(0)
+  discountPct Float   @default(0)
+  gstRate     Float   @default(18)
+  amount      Float   @default(0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  date      DateTime @default(now())
+  amount    Float    @default(0)
+  mode      String   @default("BANK") // BANK | UPI | CASH | CHEQUE | CARD | OTHER
+  reference String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+/// Competitor quotes uploaded purely as market intelligence. Deliberately has
+/// no relation to Quotation — nothing here can be pulled into your own pricing.
+model CompetitorQuote {
+  id             String  @id @default(cuid())
+  competitorName String
+  city           String?
+  clientSegment  String? // Budget | Mid | Premium | Luxury
+  projectType    String? // 2BHK / 3BHK / Villa / Office ...
+  carpetArea     Float?
+  sourceNote     String?
+  quoteDate      DateTime?
+  filename       String?
+  originalName   String?
+  mimeType       String?
+  pageCount      Int?
+  extractedText  String?
+  status         String  @default("UPLOADED") // UPLOADED | EXTRACTED | ANALYZED | FAILED
+  totalValue     Float?
+  analysisJson   String?
+  summary        String?
+  critique       String?
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  items       CompetitorLineItem[]
+  attachments Attachment[]
+}
+
+model CompetitorLineItem {
+  id                String  @id @default(cuid())
+  competitorQuoteId String
+  room              String?
+  category          String?
+  description       String
+  unit              String?
+  quantity          Float?
+  rate              Float?
+  amount            Float?
+  notes             String?
+
+  competitorQuote CompetitorQuote @relation(fields: [competitorQuoteId], references: [id], onDelete: Cascade)
+}
+
+/// Document numbering counters, one row per prefix + financial year.
+model Sequence {
+  key   String @id
+  value Int    @default(0)
+}

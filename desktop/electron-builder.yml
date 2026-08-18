@@ -1,0 +1,49 @@
+electronVersion: 43.4.0
+appId: in.zenstudios.quotes
+productName: ZenStudios
+copyright: © OMHOME SERVICES PRIVATE LIMITED
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**
+  - package.json
+
+# The server bundle, the built UI and the node_modules they need are carried in
+# as extra resources rather than being part of the renderer bundle.
+extraResources:
+  - from: ../server/dist
+    to: app/server/dist
+  - from: ../web/dist
+    to: app/web/dist
+  # Node resolves these by walking up from app/server/dist/server.mjs. Keeping
+  # them outside the asar also lets Prisma load its native query engine.
+  - from: build/runtime/node_modules
+    to: app/node_modules
+  - from: resources/app-template.db
+    to: app-template.db
+
+asar: true
+
+mac:
+  icon: resources/icon.icns
+  category: public.app-category.business
+  target:
+    - target: dmg
+      arch: [arm64]
+  # Unsigned local build: right-click → Open the first time.
+  identity: null
+  hardenedRuntime: false
+
+dmg:
+  title: ZenStudios
+  contents:
+    - x: 140
+      y: 200
+      type: file
+    - x: 400
+      y: 200
+      type: link
+      path: /Applications

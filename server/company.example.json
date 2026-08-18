@@ -1,0 +1,22 @@
+{
+  "_comment": "Copy this file to company.json and fill in your details. company.json is gitignored because it carries CIN, PAN and TAN. These values only seed a brand-new database; everything is editable later under Settings.",
+  "brandName": "ZenStudios",
+  "legalName": "YOUR COMPANY PRIVATE LIMITED",
+  "trademarkLine": "A trademark of Your Company Pvt Ltd.",
+  "cin": "",
+  "pan": "",
+  "tan": "",
+  "gstin": "",
+  "addressLine1": "Building, street",
+  "addressLine2": "Locality, district",
+  "city": "Hyderabad",
+  "state": "Telangana",
+  "stateCode": "36",
+  "pincode": "500019",
+  "country": "India",
+  "email": "you@example.com",
+  "phone": "+91 00000 00000",
+  "altPhone": "",
+  "website": "example.com",
+  "brandColor": "#16A34A"
+}
