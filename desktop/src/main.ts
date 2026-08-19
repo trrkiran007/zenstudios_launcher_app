@@ -80,7 +80,13 @@ async function startEmbeddedServer() {
 
   // Render PDFs with Electron's own Chromium. This is why the desktop build
   // does not need Puppeteer at all.
-  mod.setPdfRenderer?.(renderPdfWithElectron);
+  if (typeof mod.setPdfRenderer === 'function') {
+    mod.setPdfRenderer(renderPdfWithElectron);
+  } else {
+    // Loud on purpose: silently skipping this leaves the app with no PDF
+    // engine, and the only symptom is a button quietly disappearing.
+    console.error('[pdf] server bundle exposes no setPdfRenderer — PDF export will be unavailable');
+  }
   return running;
 }
 

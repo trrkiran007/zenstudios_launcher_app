@@ -10,6 +10,14 @@ import { closePdfEngine } from './lib/pdf.js';
 import { GST_STATES } from './lib/states.js';
 import { activityRouters } from './routes/index.js';
 
+/**
+ * Re-exported because `src/index.ts` is the bundle entry: only what this file
+ * exports survives into dist/server.mjs. The desktop shell injects an
+ * Electron-backed renderer through this, and without it PDF export silently
+ * has no engine at all.
+ */
+export { setPdfRenderer } from './lib/pdf.js';
+
 export function createApp({ serveWeb = IS_PROD }: { serveWeb?: boolean } = {}) {
   const app = express();
 
