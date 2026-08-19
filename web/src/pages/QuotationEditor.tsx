@@ -1,7 +1,7 @@
 import {
-  ArrowLeft, ChevronDown, ChevronUp, Layers, PackagePlus, Plus, Save, Trash2,
+  AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Layers, PackagePlus, Plus, RotateCcw, Save, Trash2,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CatalogPicker } from '../components/CatalogPicker';
 import { ClientPicker } from '../components/ClientPicker';
@@ -11,6 +11,7 @@ import {
 import { api, useApi } from '../lib/api';
 import { useActiveBusinessTypes, useApp } from '../lib/app-context';
 import { dateInput, money, pct } from '../lib/format';
+import { agoLabel, clearDraft, draftKey, readDraft, saveDraft } from '../lib/draft-store';
 import { computeTotals, lineAmount } from '../lib/totals';
 import type { Client, Quotation, QuotationItem, QuotationSection } from '../lib/types';
 
@@ -64,11 +65,54 @@ export function QuotationEditor() {
   const [picking, setPicking] = useState<number | null>(null);
   const [clientKey, setClientKey] = useState(0);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [recovered, setRecovered] = useState<number | null>(null);
+
+  const storeKey = draftKey(id);
+  // Set once the editor has real content, so autosave never runs on the blank
+  // template and never fires again after a successful save.
+  const dirty = useRef(false);
+  const saved = useRef(false);
+  // Snapshot of the draft as first loaded. Autosave only fires once the draft
+  // differs from it, so simply opening a quotation never creates a "recovery".
+  const baseline = useRef<string | null>(null);
+
+  /** The draft exactly as the server holds it — the baseline for an edit. */
+  const fromServer = (q: Quotation): Draft => ({
+    businessTypeId: q.businessTypeId,
+    clientId: q.clientId,
+    title: q.title,
+    quoteDate: dateInput(q.quoteDate),
+    validUntil: dateInput(q.validUntil),
+    taxMode: q.taxMode,
+    flatGstRate: q.flatGstRate,
+    placeOfSupplyState: q.placeOfSupplyState ?? '',
+    placeOfSupplyCode: q.placeOfSupplyCode ?? '',
+    discountType: q.discountType,
+    discountValue: q.discountValue,
+    notes: q.notes ?? '',
+    termsText: q.termsText ?? '',
+    sections: (q.sections ?? []).map((sec) => ({
+      name: sec.name,
+      notes: sec.notes ?? '',
+      items: sec.items.map((i) => ({ ...i })),
+    })),
+  });
 
   // Seed a new draft, or hydrate from the record being edited.
   useEffect(() => {
     if (id) {
       if (!existing) return;
+      // Unsaved edits from a previous visit win over the stored record.
+      const held = readDraft<Draft, Client>(storeKey);
+      if (held) {
+        setDraft(held.draft);
+        setSelectedClient(held.client ?? existing.client ?? null);
+        setRecovered(held.savedAt);
+        dirty.current = true;
+        return;
+      }
+      const server = fromServer(existing);
+      baseline.current = JSON.stringify(server);
       setDraft({
         businessTypeId: existing.businessTypeId,
         clientId: existing.clientId,
@@ -95,8 +139,19 @@ export function QuotationEditor() {
 
     const first = businessTypes[0];
     if (!first || draft) return;
+
+    // Unsaved work from a previous visit takes precedence over a blank form.
+    const stored = readDraft<Draft, Client>(storeKey);
+    if (stored) {
+      setDraft(stored.draft);
+      setSelectedClient(stored.client);
+      setRecovered(stored.savedAt);
+      dirty.current = true;
+      return;
+    }
+
     const today = new Date();
-    setDraft({
+    const blank: Draft = {
       businessTypeId: first.id,
       clientId: '',
       title: '',
@@ -111,9 +166,32 @@ export function QuotationEditor() {
       notes: '',
       termsText: first.defaultTerms ?? org?.defaultTerms ?? '',
       sections: [blankSection(starterSectionName(first))],
-    });
+    };
+    baseline.current = JSON.stringify(blank);
+    setDraft(blank);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, existing, businessTypes, org]);
+
+  // Mirror every edit into localStorage, debounced, so nothing is lost to a
+  // reload, a crash or a mis-click. Cleared the moment the server accepts it.
+  useEffect(() => {
+    if (!draft || saved.current) return;
+    if (baseline.current !== null && JSON.stringify(draft) === baseline.current) return;
+    dirty.current = true;
+    const t = setTimeout(() => saveDraft(storeKey, draft, selectedClient), 600);
+    return () => clearTimeout(t);
+  }, [draft, selectedClient, storeKey]);
+
+  // Last line of defence: warn before the window closes on unsaved work.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!dirty.current || saved.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
 
   const businessType = businessTypes.find((b) => b.id === draft?.businessTypeId);
   const sectioned = businessType?.layout !== 'FLAT';
@@ -167,8 +245,32 @@ export function QuotationEditor() {
       return { ...d, sections: next };
     });
 
-  const canSave =
-    draft.clientId && draft.title.trim() && draft.sections.some((s) => s.items.some((i) => i.description.trim()));
+  /**
+   * Exactly what is still needed before this can be saved. Shown next to the
+   * button — a greyed-out control with no explanation is not an explanation.
+   */
+  const missing: string[] = [];
+  if (!draft.clientId) missing.push('a client');
+  if (!draft.title.trim()) missing.push('a title');
+  if (!draft.sections.some((s) => s.items.some((i) => i.description.trim())))
+    missing.push('at least one line with a description');
+  const canSave = missing.length === 0;
+
+  const discardRecovered = () => {
+    clearDraft(storeKey);
+    setRecovered(null);
+    dirty.current = false;
+    if (id && existing) {
+      const server = fromServer(existing);
+      baseline.current = JSON.stringify(server);
+      setDraft(server);
+      setSelectedClient(existing.client ?? null);
+    } else {
+      baseline.current = null;
+      setDraft(null);
+      setSelectedClient(null);
+    }
+  };
 
   const save = () =>
     run(async () => {
@@ -198,10 +300,13 @@ export function QuotationEditor() {
           .filter((s) => s.items.length),
       };
 
-      const saved = id
+      const record = id
         ? await api.put<Quotation>(`/quotations/${id}`, payload)
         : await api.post<Quotation>('/quotations', payload);
-      navigate(`/quotations/${saved.id}`);
+      // The server has it now — drop the local copy so it cannot be offered back.
+      saved.current = true;
+      clearDraft(storeKey);
+      navigate(`/quotations/${record.id}`);
     }, id ? 'Quotation updated' : 'Quotation created');
 
   return (
@@ -219,10 +324,37 @@ export function QuotationEditor() {
             </p>
           </div>
         </div>
-        <Button variant="primary" icon={<Save className="size-4" />} loading={busy} disabled={!canSave} onClick={save}>
-          {id ? 'Save changes' : 'Create quotation'}
-        </Button>
+        <div className="flex items-center gap-3">
+          {!canSave && (
+            <p className="flex items-center gap-1.5 text-sm text-amber-700">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>
+                Add {missing.slice(0, -1).join(', ')}
+                {missing.length > 1 ? ' and ' : ''}
+                {missing[missing.length - 1]} to save
+              </span>
+            </p>
+          )}
+          <Button variant="primary" icon={<Save className="size-4" />} loading={busy} disabled={!canSave} onClick={save}>
+            {id ? 'Save changes' : 'Create quotation'}
+          </Button>
+        </div>
       </div>
+
+      {recovered !== null && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm text-brand-900">
+            <RotateCcw className="size-4 shrink-0" />
+            <span>
+              Restored unsaved changes from <strong>{agoLabel(recovered)}</strong>. They are held on
+              this Mac only until you save.
+            </span>
+          </p>
+          <Button size="sm" onClick={discardRecovered}>
+            {id ? 'Discard and reload saved version' : 'Start fresh'}
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-5">

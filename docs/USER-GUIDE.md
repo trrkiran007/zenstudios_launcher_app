@@ -142,6 +142,22 @@ The right-hand panel updates as you type:
 A document-level discount (percentage or amount) is spread across the lines in proportion to their
 value, so each line still carries the right tax.
 
+### If the save button is greyed out
+
+**Create quotation** stays disabled until the document is valid, and the reason is printed next to
+it. A quotation needs three things: a **client**, a **title**, and **at least one line with a
+description**. Fill in whatever the message names and the button turns green.
+
+### Nothing you type is lost
+
+Every edit is mirrored to this Mac a moment after you stop typing, so a reload, a crash, or leaving
+the page cannot lose the work. Come back to the same quotation and it is offered straight back with
+a note saying how old it is; **Start fresh** (or **Discard and reload saved version** when editing an
+existing quotation) throws the recovered copy away.
+
+The local copy is deleted the instant the quotation is saved to the database, and it is only ever on
+the machine that typed it — it is a safety net, not a substitute for saving.
+
 ### Statuses
 
 | Status | Meaning |
