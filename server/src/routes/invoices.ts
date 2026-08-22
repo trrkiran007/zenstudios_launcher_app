@@ -29,6 +29,8 @@ const invoiceSchema = z.object({
   clientId: z.string().min(1),
   issueDate: z.string().nullish(),
   dueDate: z.string().nullish(),
+  poNumber: z.string().nullish(),
+  poDate: z.string().nullish(),
   taxMode: z.enum(['FULL_GST', 'FLAT']).default('FULL_GST'),
   flatGstRate: z.coerce.number().min(0).max(50).default(18),
   placeOfSupplyState: z.string().nullish(),
@@ -40,12 +42,46 @@ const invoiceSchema = z.object({
   items: z.array(itemSchema).default([]),
 });
 
+
+/**
+ * The "Subject:" line printed on the document.
+ *
+ * A buyer with a purchase order reconciles on *their* number, so when a PO is
+ * supplied it leads. The quotation is still named after it, because that is
+ * what the price was agreed against.
+ */
+export function invoiceSubject(opts: {
+  poNumber?: string | null;
+  poDate?: Date | string | null;
+  quotationNumber?: string | null;
+  title?: string | null;
+}) {
+  const parts: string[] = [];
+
+  if (opts.poNumber?.trim()) {
+    const dated = opts.poDate
+      ? ` dated ${new Date(opts.poDate).toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        })}`
+      : '';
+    parts.push(`Against Purchase Order ${opts.poNumber.trim()}${dated}`);
+    if (opts.quotationNumber) parts.push(`our quotation ${opts.quotationNumber}`);
+  } else if (opts.quotationNumber) {
+    parts.push(`Against quotation ${opts.quotationNumber}`);
+  }
+
+  const head = parts.join(' · ');
+  const title = opts.title?.trim();
+  if (head && title) return `${head} — ${title}`;
+  return head || title || '';
+}
+
 const fullInclude = {
   client: true,
   items: { orderBy: { order: 'asc' as const } },
   payments: { orderBy: { date: 'desc' as const } },
   project: { select: { id: true, code: true, name: true } },
-  quotation: { select: { id: true, number: true } },
+  quotation: { select: { id: true, number: true, title: true } },
 };
 
 /** Explicit override wins, else the client's state — matching the printed invoice. */
@@ -128,6 +164,8 @@ invoicesRouter.post(
         clientId: input.clientId,
         issueDate,
         dueDate: parseDate(input.dueDate),
+        poNumber: input.poNumber?.trim() || null,
+        poDate: parseDate(input.poDate),
         taxMode: input.taxMode,
         flatGstRate: input.flatGstRate,
         placeOfSupplyState: input.placeOfSupplyState ?? null,
@@ -157,13 +195,15 @@ invoicesRouter.post(
 invoicesRouter.post(
   '/from-quotation',
   h(async (req, res) => {
-    const { quotationId, type, mode, percentage, label } = z
+    const { quotationId, type, mode, percentage, label, poNumber, poDate } = z
       .object({
         quotationId: z.string().min(1),
         type: z.enum(['PROFORMA', 'TAX']).default('TAX'),
         mode: z.enum(['FULL', 'MILESTONE']).default('FULL'),
         percentage: z.coerce.number().min(0.01).max(100).default(100),
         label: z.string().nullish(),
+        poNumber: z.string().nullish(),
+        poDate: z.string().nullish(),
       })
       .parse(req.body);
 
@@ -218,7 +258,14 @@ invoicesRouter.post(
       placeOfSupplyCode: quote.placeOfSupplyCode ?? quote.client.stateCode,
       discountType: mode === 'FULL' ? quote.discountType : 'NONE',
       discountValue: mode === 'FULL' ? quote.discountValue : 0,
-      notes: `Against quotation ${quote.number} — ${quote.title}`,
+      poNumber: poNumber?.trim() || null,
+      poDate: poDate || null,
+      notes: invoiceSubject({
+        poNumber,
+        poDate,
+        quotationNumber: quote.number,
+        title: quote.title,
+      }),
       termsText: org.defaultInvoiceTerms ?? null,
       items,
     });
@@ -282,6 +329,8 @@ invoicesRouter.put(
           clientId: input.clientId,
           issueDate: parseDate(input.issueDate) ?? existing.issueDate,
           dueDate: parseDate(input.dueDate),
+          poNumber: input.poNumber?.trim() || null,
+          poDate: parseDate(input.poDate),
           taxMode: input.taxMode,
           flatGstRate: input.flatGstRate,
           placeOfSupplyState: input.placeOfSupplyState ?? null,
@@ -304,6 +353,63 @@ invoicesRouter.put(
       }),
     ]);
     res.json(await prisma.invoice.findUnique({ where: { id: existing.id }, include: fullInclude }));
+  }),
+);
+
+/**
+ * Attach or change the buyer's purchase order on an invoice that already
+ * exists. Touches no money, so it is safe on an issued document — the subject
+ * line is recomposed unless it has been hand-written.
+ */
+invoicesRouter.patch(
+  '/:id/reference',
+  h(async (req, res) => {
+    const { poNumber, poDate, notes } = z
+      .object({
+        poNumber: z.string().nullish(),
+        poDate: z.string().nullish(),
+        notes: z.string().nullish(),
+      })
+      .parse(req.body);
+
+    const id = String(req.params.id);
+    const existing = await prisma.invoice.findUnique({
+      where: { id },
+      include: { quotation: { select: { number: true, title: true } } },
+    });
+    if (!existing) throw notFound('Invoice');
+
+    // Only regenerate the subject if it still looks auto-generated, so a
+    // hand-edited subject is never overwritten.
+    const autoNow = invoiceSubject({
+      poNumber: existing.poNumber,
+      poDate: existing.poDate,
+      quotationNumber: existing.quotation?.number ?? null,
+      title: existing.quotation?.title ?? null,
+    });
+    const subject =
+      notes !== undefined && notes !== null
+        ? notes
+        : !existing.notes || existing.notes === autoNow
+          ? invoiceSubject({
+              poNumber,
+              poDate,
+              quotationNumber: existing.quotation?.number ?? null,
+              title: existing.quotation?.title ?? null,
+            })
+          : existing.notes;
+
+    res.json(
+      await prisma.invoice.update({
+        where: { id },
+        data: {
+          poNumber: poNumber?.trim() || null,
+          poDate: parseDate(poDate),
+          notes: subject || null,
+        },
+        include: fullInclude,
+      }),
+    );
   }),
 );
 
@@ -410,6 +516,16 @@ async function invoiceDocument(id: string): Promise<DocumentModel> {
     secondaryDateLabel: 'Due date',
     secondaryDate: invoice.dueDate,
     subject: invoice.notes,
+    reference: invoice.poNumber
+      ? {
+          label: 'Your PO',
+          value: invoice.poDate
+            ? `${invoice.poNumber} · ${new Date(invoice.poDate).toLocaleDateString('en-IN', {
+                day: '2-digit', month: 'short', year: 'numeric',
+              })}`
+            : invoice.poNumber,
+        }
+      : null,
     org,
     party: {
       ...invoice.client,

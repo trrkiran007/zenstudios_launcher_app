@@ -330,6 +330,25 @@ is the correct treatment for an issued tax invoice.
 
 ---
 
+### Quoting the client's purchase order
+
+Corporate buyers reconcile on **their** PO number, not yours, and accounts departments will often
+reject an invoice that does not carry it.
+
+When you raise an invoice there is a **Client's purchase order** block — enter the PO number and its
+date. If the PO has not arrived yet, leave it blank and add it later: open the invoice from the
+Invoices page and the same two fields are there, editable even after the invoice is issued. Attaching
+a PO changes no amounts, so it is safe on a document you have already sent.
+
+With a PO attached, the document changes in two places:
+
+- The header gains a **Your PO** line beside Number, Date and Place of supply.
+- The subject line leads with the PO:
+  *Against Purchase Order 4500033379 dated 21 Aug 2026 · our quotation ZS/B2B/26-27/001 — …*
+
+Without one it reads *Against quotation …* as before. If you type your own subject it is left alone —
+changing the PO afterwards will not overwrite wording you wrote yourself.
+
 ## 9. Reports
 
 | Report | What it answers |

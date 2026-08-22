@@ -244,6 +244,8 @@ export type Invoice = {
   clientId: string;
   issueDate: string;
   dueDate: string | null;
+  poNumber: string | null;
+  poDate: string | null;
   taxMode: 'FULL_GST' | 'FLAT';
   flatGstRate: number;
   placeOfSupplyState: string | null;

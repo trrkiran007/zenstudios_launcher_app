@@ -68,6 +68,8 @@ export type DocumentModel = {
   secondaryDateLabel?: string;
   secondaryDate?: Date | null;
   subject?: string | null;
+  /** The buyer's own reference, e.g. their purchase order number and date. */
+  reference?: { label: string; value: string } | null;
   org: DocOrg;
   party: DocParty;
   sections: DocSection[];
@@ -386,6 +388,7 @@ export function renderDocumentHtml(model: DocumentModel): string {
           ? `<div><b>${esc(model.secondaryDateLabel || 'Valid till')}</b> ${fmtDate(model.secondaryDate)}</div>`
           : ''
       }
+      ${model.reference ? `<div><b>${esc(model.reference.label)}</b> ${esc(model.reference.value)}</div>` : ''}
       <div><b>Place of supply</b> ${esc(
         [party.state, party.stateCode].filter(Boolean).join(' — ') || org.state || '—',
       )}</div>

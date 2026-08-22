@@ -201,6 +201,8 @@ export function Invoices() {
               <Stat label="Due" value={date(detail.dueDate)} />
             </div>
 
+            <PoEditor invoice={detail} onSaved={async () => { await reload(); await reloadDetail(); }} />
+
             <Table>
               <thead>
                 <tr>
@@ -308,5 +310,60 @@ export function Invoices() {
         )}
       </Modal>
     </>
+  );
+}
+
+/**
+ * The buyer's purchase order, editable after the fact. Corporate buyers often
+ * send the PO only once the quotation is approved, which is after the invoice
+ * has already been raised.
+ */
+function PoEditor({ invoice, onSaved }: { invoice: Invoice; onSaved: () => Promise<void> }) {
+  const { run, busy } = useAction();
+  const [poNumber, setPoNumber] = useState(invoice.poNumber ?? '');
+  const [poDate, setPoDate] = useState(invoice.poDate ? dateInput(invoice.poDate) : '');
+
+  useEffect(() => {
+    setPoNumber(invoice.poNumber ?? '');
+    setPoDate(invoice.poDate ? dateInput(invoice.poDate) : '');
+  }, [invoice.id, invoice.poNumber, invoice.poDate]);
+
+  const changed =
+    poNumber.trim() !== (invoice.poNumber ?? '') ||
+    poDate !== (invoice.poDate ? dateInput(invoice.poDate) : '');
+
+  const savePo = () =>
+    run(async () => {
+      await api.patch(`/invoices/${invoice.id}/reference`, {
+        poNumber: poNumber.trim() || null,
+        poDate: poDate || null,
+      });
+      await onSaved();
+    }, poNumber.trim() ? 'Purchase order attached' : 'Purchase order removed');
+
+  return (
+    <div className="rounded-lg border border-slate-200 p-3.5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-slate-800">Client&rsquo;s purchase order</p>
+        {changed && (
+          <Button size="sm" variant="primary" loading={busy} onClick={savePo}>
+            Save
+          </Button>
+        )}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="PO number">
+          <Input value={poNumber} onChange={(e) => setPoNumber(e.target.value)} placeholder="4500033379" />
+        </Field>
+        <Field label="PO date">
+          <Input type="date" value={poDate} onChange={(e) => setPoDate(e.target.value)} />
+        </Field>
+      </div>
+      <p className="mt-2 text-xs text-slate-500">
+        {invoice.poNumber
+          ? 'Printed in the document header and on the subject line.'
+          : 'Add it and the subject line changes to reference their PO instead of the quotation.'}
+      </p>
+    </div>
   );
 }
