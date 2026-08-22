@@ -43,6 +43,8 @@ export function QuotationView() {
   const [invoiceType, setInvoiceType] = useState<'TAX' | 'PROFORMA'>('TAX');
   const [percentage, setPercentage] = useState(50);
   const [milestoneLabel, setMilestoneLabel] = useState('');
+  const [poNumber, setPoNumber] = useState('');
+  const [poDate, setPoDate] = useState('');
   const [note, setNote] = useState('');
 
   if (loading) return <Loading />;
@@ -71,6 +73,8 @@ export function QuotationView() {
         mode: invoiceMode,
         percentage,
         label: milestoneLabel || null,
+        poNumber: poNumber.trim() || null,
+        poDate: poDate || null,
       });
       setInvoicing(false);
       navigate(`/invoices?open=${invoice.id}`);
@@ -428,6 +432,27 @@ export function QuotationView() {
               <option value="MILESTONE">Milestone — a percentage of the quote value</option>
             </Select>
           </Field>
+          <div className="rounded-lg border border-slate-200 p-3.5">
+            <p className="mb-3 text-sm font-medium text-slate-800">Client's purchase order</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="PO number" hint="Leave blank if they did not raise one">
+                <Input
+                  value={poNumber}
+                  onChange={(e) => setPoNumber(e.target.value)}
+                  placeholder="4500033379"
+                />
+              </Field>
+              <Field label="PO date">
+                <Input type="date" value={poDate} onChange={(e) => setPoDate(e.target.value)} />
+              </Field>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              {poNumber.trim()
+                ? 'Printed in the header and on the subject line — most buyers will not process an invoice without it.'
+                : 'The subject line will reference this quotation instead.'}
+            </p>
+          </div>
+
           {invoiceMode === 'MILESTONE' && (
             <>
               <Field label="Percentage of taxable value" hint={`= ${money((q.taxableValue * percentage) / 100)} before GST`}>

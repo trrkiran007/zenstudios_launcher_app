@@ -148,6 +148,11 @@ value, so each line still carries the right tax.
 it. A quotation needs three things: a **client**, a **title**, and **at least one line with a
 description**. Fill in whatever the message names and the button turns green.
 
+### Which version am I running?
+
+Bottom-left of the sidebar, under your company name — for example *Version 1.5.0*. Quote it if you
+ever report a problem. The same number appears in **Settings → AI & system**.
+
 ### Nothing you type is lost
 
 Every edit is mirrored to this Mac a moment after you stop typing, so a reload, a crash, or leaving
@@ -329,6 +334,32 @@ An invoice with payments recorded against it cannot be edited — cancel it and 
 is the correct treatment for an issued tax invoice.
 
 ---
+
+### Quoting the client's purchase order
+
+The quotation reference has not gone anywhere. With no PO attached the subject reads
+*Against quotation ZS/B2B/26-27/001 — …* exactly as before, and even with a PO attached the
+quotation is still named after it, because that is what the price was agreed against.
+
+Corporate buyers reconcile on **their** PO number, not yours, and accounts departments will often
+reject an invoice that does not carry it.
+
+When you raise an invoice there is a **Client's purchase order** block — enter the PO number and its
+date. If the PO has not arrived yet, leave it blank and add it later: open the invoice from the
+Invoices page and the same two fields are there, editable even after the invoice is issued. Attaching
+a PO changes no amounts, so it is safe on a document you have already sent.
+
+With a PO attached, the document changes in two places:
+
+- The header gains a **Your PO** line beside Number, Date and Place of supply.
+- The subject line leads with the PO:
+  *Against Purchase Order 4500033379 dated 21 Aug 2026 · our quotation ZS/B2B/26-27/001 — …*
+
+Without one it reads *Against quotation …* as before.
+
+The **Subject line** box under those fields is yours to overwrite whenever the automatic wording is
+not what the client wants. Type anything and it is kept, even if the PO changes later; **Reset to
+automatic** puts the generated wording back.
 
 ## 9. Reports
 

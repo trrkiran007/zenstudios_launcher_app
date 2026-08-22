@@ -86,10 +86,21 @@ function NavSection({ items, label }: { items: typeof NAV; label?: string }) {
 
 export function Layout() {
   const [open, setOpen] = useState(false);
-  const { org } = useApp();
+  const { org, system } = useApp();
 
   return (
-    <div className="flex min-h-full">
+    <div className="flex min-h-full flex-col">
+      {/* macOS: the window has no native title bar, so this strip is what you
+          drag it by. The left inset clears the traffic lights. */}
+      {system?.desktop && (
+        <div className="app-drag flex h-9 shrink-0 items-center border-b border-slate-200 bg-slate-50 pl-20">
+          <span className="text-[11px] font-medium text-slate-400 select-none">
+            {org?.brandName ?? 'ZenStudios'}
+          </span>
+        </div>
+      )}
+
+      <div className="flex min-h-0 flex-1">
       {/* Mobile scrim */}
       {open && (
         <div className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={() => setOpen(false)} />
@@ -118,6 +129,12 @@ export function Layout() {
           <p className="mt-0.5 truncate text-[11px] text-slate-400">
             {org?.gstin ? `GSTIN ${org.gstin}` : 'GSTIN not set'}
           </p>
+          {system?.appVersion && (
+            <p className="mt-1.5 text-[10px] text-slate-400">
+              Version {system.appVersion}
+              {system.desktop ? '' : ' · browser'}
+            </p>
+          )}
         </div>
       </aside>
 
@@ -134,6 +151,7 @@ export function Layout() {
             <Outlet />
           </div>
         </main>
+        </div>
       </div>
     </div>
   );

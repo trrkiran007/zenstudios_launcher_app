@@ -353,6 +353,11 @@ model Invoice {
   issueDate   DateTime @default(now())
   dueDate     DateTime?
 
+  // The client's own purchase order. Large buyers reconcile on their PO number,
+  // not ours, and will reject an invoice that does not quote it.
+  poNumber    String?
+  poDate      DateTime?
+
   taxMode            String  @default("FULL_GST")
   flatGstRate        Float   @default(18)
   placeOfSupplyState String?

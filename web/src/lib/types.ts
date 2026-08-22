@@ -244,6 +244,8 @@ export type Invoice = {
   clientId: string;
   issueDate: string;
   dueDate: string | null;
+  poNumber: string | null;
+  poDate: string | null;
   taxMode: 'FULL_GST' | 'FLAT';
   flatGstRate: number;
   placeOfSupplyState: string | null;
@@ -393,4 +395,12 @@ export type Dashboard = {
   expenseByCategory: { category: string; amount: number }[];
 };
 
-export type SystemInfo = { aiKeySource: 'env' | 'stored' | 'none'; aiEnabled: boolean; pdfEngine: boolean };
+export type SystemInfo = {
+  aiKeySource: 'env' | 'stored' | 'none';
+  aiEnabled: boolean;
+  pdfEngine: boolean;
+  /** Version of the installed app, shown in the sidebar and Settings. */
+  appVersion?: string;
+  /** True inside the Electron shell — switches on the draggable title strip. */
+  desktop?: boolean;
+};
