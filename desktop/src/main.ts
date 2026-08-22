@@ -58,6 +58,10 @@ function ensureDataDir() {
 async function startEmbeddedServer() {
   process.env.ZEN_DATA_DIR = DATA_DIR;
   process.env.ZEN_WEB_DIST = WEB_DIST;
+  // Lets the UI show which build this is, and switch on the desktop-only
+  // window chrome (the draggable title strip).
+  process.env.ZEN_APP_VERSION = app.getVersion();
+  process.env.ZEN_DESKTOP = '1';
   process.env.DATABASE_URL = `file:${DB_FILE}`;
   process.env.NODE_ENV = 'production';
 
@@ -267,6 +271,7 @@ async function createWindow() {
     minHeight: 700,
     title: 'ZenStudios',
     titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 14, y: 12 },
     backgroundColor: '#f8fafc',
     show: false,
     webPreferences: { contextIsolation: true, nodeIntegration: false },

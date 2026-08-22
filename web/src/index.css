@@ -60,3 +60,19 @@ input[type='number'] {
     display: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Desktop window chrome.
+ *
+ * The Electron window uses titleBarStyle 'hiddenInset', which means the whole
+ * window is web content and macOS has nothing of its own to drag by. Any
+ * region marked .app-drag becomes a title bar for dragging and double-click
+ * zoom. Controls inside such a region must opt back out with .app-no-drag,
+ * otherwise they stop receiving clicks.
+ * ------------------------------------------------------------------------- */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}

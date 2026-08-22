@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Router } from 'express';
 import { z } from 'zod';
-import { anthropicKeySource, BRANDING_DIR, setAnthropicKey } from '../config.js';
+import { APP_VERSION, BRANDING_DIR, IS_DESKTOP, anthropicKeySource, setAnthropicKey } from '../config.js';
 import { prisma } from '../db.js';
 import { h, parsePatch } from '../lib/http.js';
 import { isPdfEngineAvailable } from '../lib/pdf.js';
@@ -122,6 +122,8 @@ settingsRouter.get(
       aiKeySource: anthropicKeySource(),
       aiEnabled: anthropicKeySource() !== 'none',
       pdfEngine: await isPdfEngineAvailable(),
+      appVersion: APP_VERSION,
+      desktop: IS_DESKTOP,
     });
   }),
 );

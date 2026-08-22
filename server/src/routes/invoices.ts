@@ -387,17 +387,25 @@ invoicesRouter.patch(
       quotationNumber: existing.quotation?.number ?? null,
       title: existing.quotation?.title ?? null,
     });
+    const auto = invoiceSubject({
+      poNumber,
+      poDate,
+      quotationNumber: existing.quotation?.number ?? null,
+      title: existing.quotation?.title ?? null,
+    });
+
+    // Three distinct intents, and null must not be confused with absent:
+    //   omitted -> follow the PO, unless the subject was hand-written
+    //   null    -> explicitly reset to the automatic wording
+    //   string  -> use exactly this
     const subject =
-      notes !== undefined && notes !== null
-        ? notes
-        : !existing.notes || existing.notes === autoNow
-          ? invoiceSubject({
-              poNumber,
-              poDate,
-              quotationNumber: existing.quotation?.number ?? null,
-              title: existing.quotation?.title ?? null,
-            })
-          : existing.notes;
+      notes === undefined
+        ? !existing.notes || existing.notes === autoNow
+          ? auto
+          : existing.notes
+        : notes === null
+          ? auto
+          : notes;
 
     res.json(
       await prisma.invoice.update({

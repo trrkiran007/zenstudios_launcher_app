@@ -34,6 +34,25 @@ for (const dir of [DATA_DIR, UPLOAD_DIR, BRANDING_DIR]) {
 
 // API_PORT, not PORT — some dev launchers inject PORT for the web server, and
 // the API must not fight the Vite dev server for it.
+/**
+ * Shown in the UI so a support conversation can start from a known build.
+ *
+ * The desktop shell passes its own version through ZEN_APP_VERSION, because
+ * that is the number on the .dmg the user actually installed. Terminal use
+ * falls back to the server package version.
+ */
+export const APP_VERSION = (() => {
+  if (process.env.ZEN_APP_VERSION?.trim()) return process.env.ZEN_APP_VERSION.trim();
+  try {
+    return JSON.parse(fs.readFileSync(path.join(SERVER_ROOT, 'package.json'), 'utf8')).version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+})();
+
+/** True when running inside the Electron shell rather than a browser tab. */
+export const IS_DESKTOP = process.env.ZEN_DESKTOP === '1';
+
 export const PORT = Number(process.env.API_PORT || 4321);
 export const IS_PROD = process.env.NODE_ENV === 'production';
 

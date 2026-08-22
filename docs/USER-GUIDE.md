@@ -148,6 +148,11 @@ value, so each line still carries the right tax.
 it. A quotation needs three things: a **client**, a **title**, and **at least one line with a
 description**. Fill in whatever the message names and the button turns green.
 
+### Which version am I running?
+
+Bottom-left of the sidebar, under your company name — for example *Version 1.5.0*. Quote it if you
+ever report a problem. The same number appears in **Settings → AI & system**.
+
 ### Nothing you type is lost
 
 Every edit is mirrored to this Mac a moment after you stop typing, so a reload, a crash, or leaving
@@ -332,6 +337,10 @@ is the correct treatment for an issued tax invoice.
 
 ### Quoting the client's purchase order
 
+The quotation reference has not gone anywhere. With no PO attached the subject reads
+*Against quotation ZS/B2B/26-27/001 — …* exactly as before, and even with a PO attached the
+quotation is still named after it, because that is what the price was agreed against.
+
 Corporate buyers reconcile on **their** PO number, not yours, and accounts departments will often
 reject an invoice that does not carry it.
 
@@ -346,8 +355,11 @@ With a PO attached, the document changes in two places:
 - The subject line leads with the PO:
   *Against Purchase Order 4500033379 dated 21 Aug 2026 · our quotation ZS/B2B/26-27/001 — …*
 
-Without one it reads *Against quotation …* as before. If you type your own subject it is left alone —
-changing the PO afterwards will not overwrite wording you wrote yourself.
+Without one it reads *Against quotation …* as before.
+
+The **Subject line** box under those fields is yours to overwrite whenever the automatic wording is
+not what the client wants. Type anything and it is kept, even if the PO changes later; **Reset to
+automatic** puts the generated wording back.
 
 ## 9. Reports
 

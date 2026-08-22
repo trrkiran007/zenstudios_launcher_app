@@ -322,13 +322,17 @@ function PoEditor({ invoice, onSaved }: { invoice: Invoice; onSaved: () => Promi
   const { run, busy } = useAction();
   const [poNumber, setPoNumber] = useState(invoice.poNumber ?? '');
   const [poDate, setPoDate] = useState(invoice.poDate ? dateInput(invoice.poDate) : '');
+  const [subject, setSubject] = useState(invoice.notes ?? '');
 
   useEffect(() => {
     setPoNumber(invoice.poNumber ?? '');
     setPoDate(invoice.poDate ? dateInput(invoice.poDate) : '');
-  }, [invoice.id, invoice.poNumber, invoice.poDate]);
+    setSubject(invoice.notes ?? '');
+  }, [invoice.id, invoice.poNumber, invoice.poDate, invoice.notes]);
 
+  const subjectEdited = subject !== (invoice.notes ?? '');
   const changed =
+    subjectEdited ||
     poNumber.trim() !== (invoice.poNumber ?? '') ||
     poDate !== (invoice.poDate ? dateInput(invoice.poDate) : '');
 
@@ -337,9 +341,12 @@ function PoEditor({ invoice, onSaved }: { invoice: Invoice; onSaved: () => Promi
       await api.patch(`/invoices/${invoice.id}/reference`, {
         poNumber: poNumber.trim() || null,
         poDate: poDate || null,
+        // Only sent when actually edited — otherwise the server recomposes it
+        // from the PO and quotation.
+        ...(subjectEdited ? { notes: subject.trim() || null } : {}),
       });
       await onSaved();
-    }, poNumber.trim() ? 'Purchase order attached' : 'Purchase order removed');
+    }, 'Reference updated');
 
   return (
     <div className="rounded-lg border border-slate-200 p-3.5">
@@ -364,6 +371,28 @@ function PoEditor({ invoice, onSaved }: { invoice: Invoice; onSaved: () => Promi
           ? 'Printed in the document header and on the subject line.'
           : 'Add it and the subject line changes to reference their PO instead of the quotation.'}
       </p>
+
+      <div className="mt-3">
+        <Field label="Subject line printed on the document">
+          <Textarea rows={2} value={subject} onChange={(e) => setSubject(e.target.value)} />
+        </Field>
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <span>
+            {subjectEdited
+              ? 'Your wording will be kept, even if the PO changes later.'
+              : 'Written for you from the PO and quotation. Edit it and yours is kept instead.'}
+          </span>
+          {(invoice.notes || subjectEdited) && (
+            <button
+              type="button"
+              className="font-medium text-brand-700 underline underline-offset-2"
+              onClick={() => setSubject('')}
+            >
+              Reset to automatic
+            </button>
+          )}
+        </p>
+      </div>
     </div>
   );
 }

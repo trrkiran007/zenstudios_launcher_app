@@ -395,4 +395,12 @@ export type Dashboard = {
   expenseByCategory: { category: string; amount: number }[];
 };
 
-export type SystemInfo = { aiKeySource: 'env' | 'stored' | 'none'; aiEnabled: boolean; pdfEngine: boolean };
+export type SystemInfo = {
+  aiKeySource: 'env' | 'stored' | 'none';
+  aiEnabled: boolean;
+  pdfEngine: boolean;
+  /** Version of the installed app, shown in the sidebar and Settings. */
+  appVersion?: string;
+  /** True inside the Electron shell — switches on the draggable title strip. */
+  desktop?: boolean;
+};
