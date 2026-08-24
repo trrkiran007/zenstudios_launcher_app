@@ -168,11 +168,21 @@ export function Invoices() {
               <Select
                 value={detail.status}
                 onChange={(e) => setStatus(detail.id, e.target.value)}
-                className="w-44"
+                className="w-52"
+                title={
+                  'Draft and issued are yours to set. Partially paid and paid are set for you ' +
+                  'when you record a payment.'
+                }
               >
-                {['DRAFT', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED'].map((s) => (
-                  <option key={s} value={s}>{s.replace('_', ' ').toLowerCase()}</option>
-                ))}
+                <option value="DRAFT">draft</option>
+                <option value="ISSUED">issued</option>
+                <option value="PARTIALLY_PAID" disabled>
+                  partially paid — automatic
+                </option>
+                <option value="PAID" disabled>
+                  paid — automatic
+                </option>
+                <option value="CANCELLED">cancelled</option>
               </Select>
               <Button
                 variant="primary"
@@ -200,6 +210,14 @@ export function Invoices() {
               <Stat label="Balance" value={money(detail.grandTotal - detail.amountPaid)} tone={detail.grandTotal - detail.amountPaid > 0 ? 'warn' : 'good'} />
               <Stat label="Due" value={date(detail.dueDate)} />
             </div>
+
+            <p className="-mt-2 text-xs text-slate-500">
+              {detail.status === 'PAID' || detail.status === 'PARTIALLY_PAID'
+                ? 'This status was set from the payments recorded below — change it by adding or removing a payment.'
+                : detail.status === 'CANCELLED'
+                  ? 'Cancelled invoices keep their status even if a payment is recorded.'
+                  : 'Use the status box for draft vs issued. Paid and partially paid set themselves when you record a payment.'}
+            </p>
 
             <PoEditor invoice={detail} onSaved={async () => { await reload(); await reloadDetail(); }} />
 

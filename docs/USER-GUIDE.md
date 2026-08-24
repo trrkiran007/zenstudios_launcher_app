@@ -361,6 +361,28 @@ The **Subject line** box under those fields is yours to overwrite whenever the a
 not what the client wants. Type anything and it is kept, even if the PO changes later; **Reset to
 automatic** puts the generated wording back.
 
+### Invoice status vs recording a payment
+
+The status box and the **Record payment** button do different jobs, and only two of the five statuses
+are yours to set.
+
+| Status | Who sets it |
+|---|---|
+| **draft** | You. Still being prepared |
+| **issued** | You. Sent to the client — this is the one to pick after you email the invoice |
+| **partially paid** | Set automatically when recorded payments are less than the total |
+| **paid** | Set automatically when recorded payments reach the total |
+| **cancelled** | You. Sticky — recording a payment will not move it off cancelled |
+
+**Record payment** writes the amount, date, mode and reference against the invoice, then works out
+the status from the money: nothing received keeps it draft or issued, part of the total makes it
+partially paid, and the full amount makes it paid. Delete a payment and the status is recalculated
+back.
+
+So do not set *paid* by hand — the two paid options are greyed out for that reason. If you did, the
+invoice would claim to be settled while **Received** still read ₹0, and your reports and outstanding
+figures would disagree with it.
+
 ## 9. Reports
 
 | Report | What it answers |
