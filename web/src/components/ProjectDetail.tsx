@@ -37,10 +37,39 @@ export function ProjectDetail({
   const [stageNote, setStageNote] = useState('');
   const [stageFiles, setStageFiles] = useState<File[]>([]);
   const [attachingTo, setAttachingTo] = useState<string | null>(null);
+
   const [movingTo, setMovingTo] = useState<string | null>(null);
   const [taskForm, setTaskForm] = useState<Partial<Task> | null>(null);
   const [expenseForm, setExpenseForm] = useState<Partial<Expense> | null>(null);
   const [note, setNote] = useState('');
+
+  /**
+   * Keep an open editor's attachment list in step with the server.
+   *
+   * The task and expense modals render from a snapshot taken when they opened,
+   * so uploading or deleting refreshed the project behind them while the modal
+   * kept showing the old list — an upload appeared to do nothing, and deleting
+   * twice asked the server to remove an id that was already gone.
+   */
+  const ids = (list?: { id: string }[]) => (list ?? []).map((a) => a.id).join(',');
+
+  useEffect(() => {
+    if (!data || !taskForm?.id) return;
+    const fresh = data.tasks.find((t) => t.id === taskForm.id);
+    if (fresh && ids(fresh.attachments) !== ids(taskForm.attachments)) {
+      setTaskForm((f) => (f && f.id === fresh.id ? { ...f, attachments: fresh.attachments } : f));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, taskForm?.id]);
+
+  useEffect(() => {
+    if (!data || !expenseForm?.id) return;
+    const fresh = data.expenses.find((e) => e.id === expenseForm.id);
+    if (fresh && ids(fresh.attachments) !== ids(expenseForm.attachments)) {
+      setExpenseForm((f) => (f && f.id === fresh.id ? { ...f, attachments: fresh.attachments } : f));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, expenseForm?.id]);
 
   const { data: categories } = useApi<string[]>('/expenses/categories');
 
@@ -65,7 +94,9 @@ export function ProjectDetail({
     });
     // Suggest the stage after the last completed one.
     const target = data.stages[furthest + 1];
-    if (furthest < 0 || !target || furthest + 1 <= stageIndex) return null;
+    // Only when the checklist is genuinely ahead of the stage. Equal means the
+    // current stage's own task is ticked, which is not a discrepancy.
+    if (furthest < 0 || !target || furthest <= stageIndex) return null;
     return { target, completed: data.stages[furthest] };
   })();
 

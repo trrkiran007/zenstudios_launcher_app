@@ -132,7 +132,9 @@ attachmentsRouter.delete(
   '/:id',
   h(async (req, res) => {
     const a = await prisma.attachment.findUnique({ where: { id: String(req.params.id) } });
-    if (!a) throw notFound('Attachment');
+    // Idempotent: deleting something already gone is the outcome the caller
+    // wanted, and erroring only ever surfaced as a scary toast on a stale list.
+    if (!a) return res.status(204).end();
     await prisma.attachment.delete({ where: { id: a.id } });
     fs.rmSync(path.join(UPLOAD_DIR, path.basename(a.filename)), { force: true });
     res.status(204).end();
