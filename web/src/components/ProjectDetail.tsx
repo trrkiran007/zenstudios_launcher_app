@@ -1,11 +1,11 @@
 import {
-  CheckCircle2, ChevronRight, CirclePlus, ExternalLink, FileText, Plus,
+  CheckCircle2, ChevronRight, CirclePlus, ExternalLink, FileText, Paperclip, Plus,
   Receipt, Trash2, Wallet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, useApi } from '../lib/api';
-import { date, dateInput, dateTime, money, pct, relative } from '../lib/format';
+import { date, dateInput, dateTime, fileSize, money, pct, relative } from '../lib/format';
 import type { Expense, ProjectDetail as Detail, Task } from '../lib/types';
 import { Attachments } from './Attachments';
 import {
@@ -35,6 +35,8 @@ export function ProjectDetail({
   const { run, busy } = useAction();
   const [tab, setTab] = useState<'overview' | 'tasks' | 'money' | 'files' | 'log'>('overview');
   const [stageNote, setStageNote] = useState('');
+  const [stageFiles, setStageFiles] = useState<File[]>([]);
+  const [attachingTo, setAttachingTo] = useState<string | null>(null);
   const [movingTo, setMovingTo] = useState<string | null>(null);
   const [taskForm, setTaskForm] = useState<Partial<Task> | null>(null);
   const [expenseForm, setExpenseForm] = useState<Partial<Expense> | null>(null);
@@ -71,11 +73,25 @@ export function ProjectDetail({
 
   const moveStage = (stageId: string) =>
     run(async () => {
-      await api.patch(`/projects/${data.id}/stage`, { stageId, note: stageNote || null });
+      // The move first, then its paperwork onto the note the move created, so a
+      // failed upload cannot leave the project stranded between stages.
+      const moved = await api.patch<{ stageNoteId?: string }>(`/projects/${data.id}/stage`, {
+        stageId,
+        note: stageNote || null,
+      });
+
+      if (stageFiles.length && moved.stageNoteId) {
+        const form = new FormData();
+        form.append('noteId', moved.stageNoteId);
+        stageFiles.forEach((f) => form.append('files', f));
+        await api.upload('/attachments', form);
+      }
+
       setStageNote('');
+      setStageFiles([]);
       setMovingTo(null);
       await reload();
-    }, 'Stage updated');
+    }, stageFiles.length ? `Stage updated · ${stageFiles.length} file(s) attached` : 'Stage updated');
 
   const saveTask = () =>
     run(async () => {
@@ -514,9 +530,30 @@ export function ProjectDetail({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-slate-700">{n.body}</p>
                     <p className="mt-0.5 text-xs text-slate-400">{n.author} · {dateTime(n.createdAt)}</p>
-                    {!!n.attachments?.length && (
+                    {n.attachments?.length ? (
                       <div className="mt-2">
                         <Attachments owner={{ noteId: n.id }} items={n.attachments} onChange={reload} compact />
+                      </div>
+                    ) : (
+                      // Without this a note with no files could never get one.
+                      <button
+                        className="mt-1 text-xs font-medium text-slate-400 hover:text-brand-700"
+                        onClick={() => setAttachingTo(attachingTo === n.id ? null : n.id)}
+                      >
+                        {attachingTo === n.id ? 'Cancel' : '+ Attach a file'}
+                      </button>
+                    )}
+                    {attachingTo === n.id && !n.attachments?.length && (
+                      <div className="mt-2">
+                        <Attachments
+                          owner={{ noteId: n.id }}
+                          items={[]}
+                          onChange={async () => {
+                            setAttachingTo(null);
+                            await reload();
+                          }}
+                          compact
+                        />
                       </div>
                     )}
                   </div>
@@ -545,6 +582,51 @@ export function ProjectDetail({
         <Field label="Note (optional)">
           <Textarea rows={3} value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder="What changed?" />
         </Field>
+
+        <div className="mt-4">
+          <Field label="Attach paperwork (optional)">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-xs text-slate-500 transition hover:border-brand-400 hover:bg-brand-50">
+              <Paperclip className="size-4 text-slate-400" />
+              <span>
+                Purchase order, signed approval, delivery challan, site photos —{' '}
+                <span className="font-medium text-brand-700">browse</span>
+              </span>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  setStageFiles(Array.from(e.target.files ?? []));
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </Field>
+
+          {stageFiles.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {stageFiles.map((f, i) => (
+                <li
+                  key={`${f.name}-${i}`}
+                  className="flex items-center gap-2 rounded bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700"
+                >
+                  <FileText className="size-3.5 shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <span className="text-slate-400">{fileSize(f.size)}</span>
+                  <button
+                    className="text-slate-400 hover:text-red-500"
+                    onClick={() => setStageFiles((fs) => fs.filter((_, n) => n !== i))}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-1.5 text-xs text-slate-500">
+            Filed against this move in the Activity log, so it stays with the stage it belongs to.
+          </p>
+        </div>
       </Modal>
 
       {/* Task */}

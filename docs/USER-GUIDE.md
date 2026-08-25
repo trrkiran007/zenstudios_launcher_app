@@ -262,6 +262,26 @@ When the checklist has clearly run ahead — tasks ticked for stages the project
 Tasks tab shows a prompt naming the stage you appear to have reached, with a button to move there in
 one click. Ignore it if the stage really has not changed.
 
+### Attaching paperwork to a stage move
+
+Every stage move can carry its own documents. Click a stage, and the confirmation box has an
+**Attach paperwork** area under the note — drop in the client's purchase order, a signed design
+approval, a delivery challan, site photos, whatever arrived with that step.
+
+The files are filed against that move in the **Activity log**, not loosely against the project, so
+six months later the PO still sits beside the note that says the PO was received. The move is saved
+first and the files second, so a failed upload can never leave a project stranded between stages.
+
+You can also attach to any log entry after the fact — **+ Attach a file** under any note.
+
+Three places files can live, and it is worth using the right one:
+
+| Where | Use it for |
+|---|---|
+| **Activity log entry** | Paperwork tied to a moment — the PO, an approval email, a delay photo |
+| **Files tab** | Documents about the project as a whole — drawings, the signed contract |
+| **Expense** | The bill or receipt backing a specific cost |
+
 ### Working a project
 
 Projects open as **tabs** across the top — several can be open at once, and the strip survives a

@@ -142,7 +142,7 @@ projectsRouter.patch(
       throw badRequest('That stage does not belong to this business type.');
     }
 
-    const [updated] = await prisma.$transaction([
+    const [updated, , stageNote] = await prisma.$transaction([
       prisma.project.update({
         where: { id: project.id },
         data: {
@@ -163,7 +163,9 @@ projectsRouter.patch(
       }),
     ]);
 
-    res.json(updated);
+    // The note id goes back so the caller can hang the paperwork for this move —
+    // a purchase order, a signed approval, a delivery challan — off it.
+    res.json({ ...updated, stageNoteId: stageNote.id });
   }),
 );
 
