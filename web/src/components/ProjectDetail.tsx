@@ -1,11 +1,11 @@
 import {
-  CheckCircle2, ChevronRight, CirclePlus, ExternalLink, FileText, Plus,
+  CheckCircle2, ChevronRight, CirclePlus, ExternalLink, FileText, Paperclip, Plus,
   Receipt, Trash2, Wallet,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, useApi } from '../lib/api';
-import { date, dateInput, dateTime, money, pct, relative } from '../lib/format';
+import { date, dateInput, dateTime, fileSize, money, pct, relative } from '../lib/format';
 import type { Expense, ProjectDetail as Detail, Task } from '../lib/types';
 import { Attachments } from './Attachments';
 import {
@@ -18,15 +18,58 @@ const PRIORITY_TONE: Record<string, 'slate' | 'blue' | 'amber' | 'red'> = {
   LOW: 'slate', MEDIUM: 'blue', HIGH: 'amber', URGENT: 'red',
 };
 
-export function ProjectDetail({ id }: { id: string }) {
+export function ProjectDetail({
+  id,
+  onLoaded,
+}: {
+  id: string;
+  /** Reports the project's line of business so the page tabs can follow it. */
+  onLoaded?: (businessTypeId: string) => void;
+}) {
   const { data, loading, error, reload } = useApi<Detail>(`/projects/${id}`, [id]);
+
+  useEffect(() => {
+    if (data?.businessTypeId) onLoaded?.(data.businessTypeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.businessTypeId]);
   const { run, busy } = useAction();
   const [tab, setTab] = useState<'overview' | 'tasks' | 'money' | 'files' | 'log'>('overview');
   const [stageNote, setStageNote] = useState('');
+  const [stageFiles, setStageFiles] = useState<File[]>([]);
+  const [attachingTo, setAttachingTo] = useState<string | null>(null);
+
   const [movingTo, setMovingTo] = useState<string | null>(null);
   const [taskForm, setTaskForm] = useState<Partial<Task> | null>(null);
   const [expenseForm, setExpenseForm] = useState<Partial<Expense> | null>(null);
   const [note, setNote] = useState('');
+
+  /**
+   * Keep an open editor's attachment list in step with the server.
+   *
+   * The task and expense modals render from a snapshot taken when they opened,
+   * so uploading or deleting refreshed the project behind them while the modal
+   * kept showing the old list — an upload appeared to do nothing, and deleting
+   * twice asked the server to remove an id that was already gone.
+   */
+  const ids = (list?: { id: string }[]) => (list ?? []).map((a) => a.id).join(',');
+
+  useEffect(() => {
+    if (!data || !taskForm?.id) return;
+    const fresh = data.tasks.find((t) => t.id === taskForm.id);
+    if (fresh && ids(fresh.attachments) !== ids(taskForm.attachments)) {
+      setTaskForm((f) => (f && f.id === fresh.id ? { ...f, attachments: fresh.attachments } : f));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, taskForm?.id]);
+
+  useEffect(() => {
+    if (!data || !expenseForm?.id) return;
+    const fresh = data.expenses.find((e) => e.id === expenseForm.id);
+    if (fresh && ids(fresh.attachments) !== ids(expenseForm.attachments)) {
+      setExpenseForm((f) => (f && f.id === fresh.id ? { ...f, attachments: fresh.attachments } : f));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, expenseForm?.id]);
 
   const { data: categories } = useApi<string[]>('/expenses/categories');
 
@@ -34,15 +77,52 @@ export function ProjectDetail({ id }: { id: string }) {
   if (error || !data) return <ErrorState message={error ?? 'Project not found'} onRetry={reload} />;
 
   const stageIndex = data.stages.findIndex((s) => s.id === data.stageId);
+
+  /**
+   * Conversion seeds the first few tasks from stage names, so a done task often
+   * means the project has really moved on. Ticking a task deliberately does not
+   * move the stage — that stays an explicit decision — but when the checklist
+   * has clearly run ahead we say so and offer the move in one click.
+   */
+  const stageSuggestion = (() => {
+    const done = new Set(
+      data.tasks.filter((t) => t.status === 'DONE').map((t) => t.title.trim().toLowerCase()),
+    );
+    let furthest = -1;
+    data.stages.forEach((st, i) => {
+      if (done.has(st.name.trim().toLowerCase())) furthest = Math.max(furthest, i);
+    });
+    // Suggest the stage after the last completed one.
+    const target = data.stages[furthest + 1];
+    // Only when the checklist is genuinely ahead of the stage. Equal means the
+    // current stage's own task is ticked, which is not a discrepancy.
+    if (furthest < 0 || !target || furthest <= stageIndex) return null;
+    return { target, completed: data.stages[furthest] };
+  })();
+
   const nextStage = data.stages[stageIndex + 1];
 
   const moveStage = (stageId: string) =>
     run(async () => {
-      await api.patch(`/projects/${data.id}/stage`, { stageId, note: stageNote || null });
+      // The move first, then its paperwork onto the note the move created, so a
+      // failed upload cannot leave the project stranded between stages.
+      const moved = await api.patch<{ stageNoteId?: string }>(`/projects/${data.id}/stage`, {
+        stageId,
+        note: stageNote || null,
+      });
+
+      if (stageFiles.length && moved.stageNoteId) {
+        const form = new FormData();
+        form.append('noteId', moved.stageNoteId);
+        stageFiles.forEach((f) => form.append('files', f));
+        await api.upload('/attachments', form);
+      }
+
       setStageNote('');
+      setStageFiles([]);
       setMovingTo(null);
       await reload();
-    }, 'Stage updated');
+    }, stageFiles.length ? `Stage updated · ${stageFiles.length} file(s) attached` : 'Stage updated');
 
   const saveTask = () =>
     run(async () => {
@@ -238,13 +318,25 @@ export function ProjectDetail({ id }: { id: string }) {
         <Card
           padded={false}
           title="Tasks"
-          subtitle={`${openTasks.length} open of ${data.tasks.length}`}
+          subtitle={`${openTasks.length} open of ${data.tasks.length} · ticking these does not move the project stage`}
           actions={
             <Button size="sm" variant="primary" icon={<Plus className="size-3.5" />} onClick={() => setTaskForm({ status: 'TODO', priority: 'MEDIUM' })}>
               Add task
             </Button>
           }
         >
+          {stageSuggestion && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-amber-50/60 px-4 py-3">
+              <p className="text-sm text-amber-900">
+                Tasks are ticked through <strong>{stageSuggestion.completed.name}</strong>, but the
+                project is still in <strong>{data.stage?.name}</strong>.
+              </p>
+              <Button size="sm" onClick={() => setMovingTo(stageSuggestion.target.id)}>
+                Move to {stageSuggestion.target.name}
+              </Button>
+            </div>
+          )}
+
           {data.tasks.length ? (
             <Table>
               <thead>
@@ -469,9 +561,30 @@ export function ProjectDetail({ id }: { id: string }) {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-slate-700">{n.body}</p>
                     <p className="mt-0.5 text-xs text-slate-400">{n.author} · {dateTime(n.createdAt)}</p>
-                    {!!n.attachments?.length && (
+                    {n.attachments?.length ? (
                       <div className="mt-2">
                         <Attachments owner={{ noteId: n.id }} items={n.attachments} onChange={reload} compact />
+                      </div>
+                    ) : (
+                      // Without this a note with no files could never get one.
+                      <button
+                        className="mt-1 text-xs font-medium text-slate-400 hover:text-brand-700"
+                        onClick={() => setAttachingTo(attachingTo === n.id ? null : n.id)}
+                      >
+                        {attachingTo === n.id ? 'Cancel' : '+ Attach a file'}
+                      </button>
+                    )}
+                    {attachingTo === n.id && !n.attachments?.length && (
+                      <div className="mt-2">
+                        <Attachments
+                          owner={{ noteId: n.id }}
+                          items={[]}
+                          onChange={async () => {
+                            setAttachingTo(null);
+                            await reload();
+                          }}
+                          compact
+                        />
                       </div>
                     )}
                   </div>
@@ -500,6 +613,51 @@ export function ProjectDetail({ id }: { id: string }) {
         <Field label="Note (optional)">
           <Textarea rows={3} value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder="What changed?" />
         </Field>
+
+        <div className="mt-4">
+          <Field label="Attach paperwork (optional)">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-xs text-slate-500 transition hover:border-brand-400 hover:bg-brand-50">
+              <Paperclip className="size-4 text-slate-400" />
+              <span>
+                Purchase order, signed approval, delivery challan, site photos —{' '}
+                <span className="font-medium text-brand-700">browse</span>
+              </span>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  setStageFiles(Array.from(e.target.files ?? []));
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </Field>
+
+          {stageFiles.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {stageFiles.map((f, i) => (
+                <li
+                  key={`${f.name}-${i}`}
+                  className="flex items-center gap-2 rounded bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700"
+                >
+                  <FileText className="size-3.5 shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <span className="text-slate-400">{fileSize(f.size)}</span>
+                  <button
+                    className="text-slate-400 hover:text-red-500"
+                    onClick={() => setStageFiles((fs) => fs.filter((_, n) => n !== i))}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-1.5 text-xs text-slate-500">
+            Filed against this move in the Activity log, so it stays with the stage it belongs to.
+          </p>
+        </div>
       </Modal>
 
       {/* Task */}

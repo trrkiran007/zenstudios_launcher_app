@@ -1,6 +1,6 @@
 {
   "name": "zen-desktop",
-  "version": "1.5.1",
+  "version": "1.6.1",
   "private": true,
   "description": "ZenStudios desktop shell",
   "main": "dist/main.cjs",
