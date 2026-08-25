@@ -2,7 +2,7 @@ import {
   CheckCircle2, ChevronRight, CirclePlus, ExternalLink, FileText, Plus,
   Receipt, Trash2, Wallet,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, useApi } from '../lib/api';
 import { date, dateInput, dateTime, money, pct, relative } from '../lib/format';
@@ -18,8 +18,20 @@ const PRIORITY_TONE: Record<string, 'slate' | 'blue' | 'amber' | 'red'> = {
   LOW: 'slate', MEDIUM: 'blue', HIGH: 'amber', URGENT: 'red',
 };
 
-export function ProjectDetail({ id }: { id: string }) {
+export function ProjectDetail({
+  id,
+  onLoaded,
+}: {
+  id: string;
+  /** Reports the project's line of business so the page tabs can follow it. */
+  onLoaded?: (businessTypeId: string) => void;
+}) {
   const { data, loading, error, reload } = useApi<Detail>(`/projects/${id}`, [id]);
+
+  useEffect(() => {
+    if (data?.businessTypeId) onLoaded?.(data.businessTypeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.businessTypeId]);
   const { run, busy } = useAction();
   const [tab, setTab] = useState<'overview' | 'tasks' | 'money' | 'files' | 'log'>('overview');
   const [stageNote, setStageNote] = useState('');
@@ -34,6 +46,27 @@ export function ProjectDetail({ id }: { id: string }) {
   if (error || !data) return <ErrorState message={error ?? 'Project not found'} onRetry={reload} />;
 
   const stageIndex = data.stages.findIndex((s) => s.id === data.stageId);
+
+  /**
+   * Conversion seeds the first few tasks from stage names, so a done task often
+   * means the project has really moved on. Ticking a task deliberately does not
+   * move the stage — that stays an explicit decision — but when the checklist
+   * has clearly run ahead we say so and offer the move in one click.
+   */
+  const stageSuggestion = (() => {
+    const done = new Set(
+      data.tasks.filter((t) => t.status === 'DONE').map((t) => t.title.trim().toLowerCase()),
+    );
+    let furthest = -1;
+    data.stages.forEach((st, i) => {
+      if (done.has(st.name.trim().toLowerCase())) furthest = Math.max(furthest, i);
+    });
+    // Suggest the stage after the last completed one.
+    const target = data.stages[furthest + 1];
+    if (furthest < 0 || !target || furthest + 1 <= stageIndex) return null;
+    return { target, completed: data.stages[furthest] };
+  })();
+
   const nextStage = data.stages[stageIndex + 1];
 
   const moveStage = (stageId: string) =>
@@ -238,13 +271,25 @@ export function ProjectDetail({ id }: { id: string }) {
         <Card
           padded={false}
           title="Tasks"
-          subtitle={`${openTasks.length} open of ${data.tasks.length}`}
+          subtitle={`${openTasks.length} open of ${data.tasks.length} · ticking these does not move the project stage`}
           actions={
             <Button size="sm" variant="primary" icon={<Plus className="size-3.5" />} onClick={() => setTaskForm({ status: 'TODO', priority: 'MEDIUM' })}>
               Add task
             </Button>
           }
         >
+          {stageSuggestion && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-amber-50/60 px-4 py-3">
+              <p className="text-sm text-amber-900">
+                Tasks are ticked through <strong>{stageSuggestion.completed.name}</strong>, but the
+                project is still in <strong>{data.stage?.name}</strong>.
+              </p>
+              <Button size="sm" onClick={() => setMovingTo(stageSuggestion.target.id)}>
+                Move to {stageSuggestion.target.name}
+              </Button>
+            </div>
+          )}
+
           {data.tasks.length ? (
             <Table>
               <thead>

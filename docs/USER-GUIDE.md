@@ -246,6 +246,22 @@ stage.
 Edit the lanes in Settings → Lines of business → **Stages**. A stage that projects are currently
 sitting in cannot be deleted.
 
+### Stages and tasks are not the same thing
+
+This trips people up, because conversion names the first few tasks after the first few stages.
+
+- The **stage strip** across the top is where the project *is*. You move it by clicking a stage and
+  confirming, which records a dated note in the Activity log. Nothing moves it for you.
+- **Tasks** are a checklist. Ticking every task in the world will not advance the stage, and moving
+  the stage will not tick any tasks.
+
+They are deliberately separate: a stage change is a statement to your client and your reports about
+where the job stands, so it stays a decision you make rather than a side effect of a checkbox.
+
+When the checklist has clearly run ahead — tasks ticked for stages the project has not reached — the
+Tasks tab shows a prompt naming the stage you appear to have reached, with a button to move there in
+one click. Ignore it if the stage really has not changed.
+
 ### Working a project
 
 Projects open as **tabs** across the top — several can be open at once, and the strip survives a

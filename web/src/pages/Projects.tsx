@@ -148,7 +148,7 @@ export function Projects() {
       )}
 
       {id ? (
-        <ProjectDetail key={id} id={id} />
+        <ProjectDetail key={id} id={id} onLoaded={setTab} />
       ) : (
         <>
           <div className="mb-4 relative max-w-sm">
