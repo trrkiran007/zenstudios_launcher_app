@@ -283,6 +283,8 @@ invoicesRouter.post(
         clientId: input.clientId,
         issueDate,
         dueDate: new Date(issueDate.getTime() + 15 * 86400000),
+        poNumber: input.poNumber?.trim() || null,
+        poDate: parseDate(input.poDate),
         taxMode: input.taxMode,
         flatGstRate: input.flatGstRate,
         placeOfSupplyState: input.placeOfSupplyState ?? null,
