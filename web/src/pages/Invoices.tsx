@@ -8,7 +8,7 @@ import {
 import { api, useApi } from '../lib/api';
 import { useApp } from '../lib/app-context';
 import { date, dateInput, money } from '../lib/format';
-import type { Invoice } from '../lib/types';
+import type { Client, Invoice } from '../lib/types';
 
 const STATUS_TONE: Record<string, 'slate' | 'blue' | 'amber' | 'green' | 'red'> = {
   DRAFT: 'slate', ISSUED: 'blue', PARTIALLY_PAID: 'amber', PAID: 'green', CANCELLED: 'red',
@@ -219,6 +219,8 @@ export function Invoices() {
                   : 'Use the status box for draft vs issued. Paid and partially paid set themselves when you record a payment.'}
             </p>
 
+            <BilledTo invoice={detail} onSaved={async () => { await reload(); await reloadDetail(); }} />
+
             <PoEditor invoice={detail} onSaved={async () => { await reload(); await reloadDetail(); }} />
 
             <Table>
@@ -411,6 +413,86 @@ function PoEditor({ invoice, onSaved }: { invoice: Invoice; onSaved: () => Promi
           )}
         </p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Who the invoice is billed to, changeable after the fact.
+ *
+ * A client record is often corrected after documents exist — a contact name
+ * that should not have been on it, a registered address that turned out to be
+ * the wrong branch. Changing it here recomputes the tax, because the place of
+ * supply travels with the client.
+ */
+function BilledTo({ invoice, onSaved }: { invoice: Invoice; onSaved: () => Promise<void> }) {
+  const { run, busy } = useAction();
+  // ?archived=1 — an invoice may already be billed to an archived client, which is
+  // precisely the case this control exists to correct.
+  const { data: clients } = useApi<Client[]>('/clients?archived=1');
+  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState('');
+
+  const current = clients?.find((c) => c.id === invoice.clientId);
+
+  const move = () =>
+    run(async () => {
+      await api.patch(`/invoices/${invoice.id}/client`, { clientId: choice });
+      setOpen(false);
+      await onSaved();
+    }, 'Billed-to updated');
+
+  return (
+    <div className="rounded-lg border border-slate-200 p-3.5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-800">Billed to</p>
+          <p className="mt-0.5 text-sm text-slate-600">
+            {invoice.client?.name}
+            {current?.contactPerson ? ` · Attn: ${current.contactPerson}` : ''}
+          </p>
+          <p className="text-xs text-slate-500">
+            {[current?.city, current?.state, current?.pincode].filter(Boolean).join(', ') || 'No address on this client'}
+          </p>
+          {current?.archived && (
+            <p className="mt-1.5 text-xs font-medium text-amber-700">
+              This client record is archived — it is probably not the one you want on a live document.
+            </p>
+          )}
+        </div>
+        <Button size="sm" onClick={() => { setChoice(invoice.clientId); setOpen((o) => !o); }}>
+          {open ? 'Cancel' : 'Change'}
+        </Button>
+      </div>
+
+      {open && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <Field label="Bill this invoice to">
+            <Select value={choice} onChange={(e) => setChoice(e.target.value)}>
+              {(clients ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.city ? ` — ${c.city}` : ''}
+                  {c.archived ? ' (archived)' : ''}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <p className="mt-1.5 text-xs text-slate-500">
+            The address, GSTIN and contact all come from the client record. Tax is recalculated, so
+            moving to a client in another state switches between CGST + SGST and IGST.
+          </p>
+          <Button
+            className="mt-3"
+            variant="primary"
+            loading={busy}
+            disabled={!choice || choice === invoice.clientId}
+            onClick={move}
+          >
+            Change billed-to
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

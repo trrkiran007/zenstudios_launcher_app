@@ -3,7 +3,7 @@ import {
   Receipt, Trash2, Wallet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api, useApi } from '../lib/api';
 import { date, dateInput, dateTime, fileSize, money, pct, relative } from '../lib/format';
 import type { Expense, ProjectDetail as Detail, Task } from '../lib/types';
@@ -26,6 +26,7 @@ export function ProjectDetail({
   /** Reports the project's line of business so the page tabs can follow it. */
   onLoaded?: (businessTypeId: string) => void;
 }) {
+  const navigate = useNavigate();
   const { data, loading, error, reload } = useApi<Detail>(`/projects/${id}`, [id]);
 
   useEffect(() => {
@@ -37,6 +38,12 @@ export function ProjectDetail({
   const [stageNote, setStageNote] = useState('');
   const [stageFiles, setStageFiles] = useState<File[]>([]);
   const [attachingTo, setAttachingTo] = useState<string | null>(null);
+  const [billing, setBilling] = useState(false);
+  const [billMode, setBillMode] = useState<'REMAINING' | 'PERCENT' | 'AMOUNT'>('REMAINING');
+  const [billPct, setBillPct] = useState(50);
+  const [billAmount, setBillAmount] = useState(0);
+  const [billType, setBillType] = useState<'TAX' | 'PROFORMA'>('TAX');
+  const [billLabel, setBillLabel] = useState('');
 
   const [movingTo, setMovingTo] = useState<string | null>(null);
   const [taskForm, setTaskForm] = useState<Partial<Task> | null>(null);
@@ -70,6 +77,26 @@ export function ProjectDetail({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, expenseForm?.id]);
+
+  const { data: billPos, reload: reloadBilling } = useApi<{
+    contractTaxable: number; invoicedTaxable: number; remainingTaxable: number;
+    receivedTotal: number; invoiceCount: number; clientArchived: boolean; clientName: string;
+  }>(`/invoices/billing/project/${id}`, [id]);
+
+  const raiseInvoice = () =>
+    run(async () => {
+      const inv = await api.post<{ id: string }>('/invoices/from-project', {
+        projectId: id,
+        type: billType,
+        mode: billMode,
+        ...(billMode === 'PERCENT' ? { percentage: billPct } : {}),
+        ...(billMode === 'AMOUNT' ? { amount: billAmount } : {}),
+        label: billLabel.trim() || null,
+      });
+      setBilling(false);
+      await Promise.all([reload(), reloadBilling()]);
+      navigate(`/invoices?open=${inv.id}`);
+    }, 'Invoice drafted');
 
   const { data: categories } = useApi<string[]>('/expenses/categories');
 
@@ -431,10 +458,29 @@ export function ProjectDetail({
           <Card
             padded={false}
             title="Invoices"
+            subtitle={
+              billPos
+                ? `${money(billPos.invoicedTaxable)} of ${money(billPos.contractTaxable)} invoiced (before GST) · ${money(billPos.remainingTaxable)} left`
+                : undefined
+            }
             actions={
-              <Link to="/invoices" className="text-xs font-medium text-brand-700 hover:underline">
-                All invoices
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link to="/invoices" className="text-xs font-medium text-brand-700 hover:underline">
+                  All invoices
+                </Link>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={<Receipt className="size-3.5" />}
+                  onClick={() => {
+                    setBillAmount(billPos?.remainingTaxable ?? 0);
+                    setBillMode(billPos && billPos.remainingTaxable > 0 ? 'REMAINING' : 'AMOUNT');
+                    setBilling(true);
+                  }}
+                >
+                  Raise invoice
+                </Button>
+              </div>
             }
           >
             {data.invoices.length ? (
@@ -464,7 +510,8 @@ export function ProjectDetail({
               </Table>
             ) : (
               <p className="py-8 text-center text-sm text-slate-500">
-                No invoices yet — raise one from the source quotation.
+                Nothing invoiced yet. Use <strong>Raise invoice</strong> above to bill the
+                whole contract, a percentage milestone, or a specific amount.
               </p>
             )}
           </Card>
@@ -708,6 +755,89 @@ export function ProjectDetail({
                 <Attachments owner={{ taskId: taskForm.id }} items={taskForm.attachments ?? []} onChange={reload} compact />
               </div>
             )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={billing}
+        onClose={() => setBilling(false)}
+        title="Raise an invoice for this project"
+        description="Billed against the contract, so it knows what has already been invoiced."
+        footer={
+          <>
+            <Button onClick={() => setBilling(false)}>Cancel</Button>
+            <Button variant="primary" loading={busy} onClick={raiseInvoice}>Create draft</Button>
+          </>
+        }
+      >
+        {billPos && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2 rounded-lg bg-slate-50 p-3 text-center">
+              <div>
+                <p className="text-[11px] tracking-wide text-slate-500 uppercase">Contract</p>
+                <p className="tnum text-sm font-semibold text-slate-900">{money(billPos.contractTaxable)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] tracking-wide text-slate-500 uppercase">Invoiced</p>
+                <p className="tnum text-sm font-semibold text-slate-900">{money(billPos.invoicedTaxable)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] tracking-wide text-slate-500 uppercase">Left</p>
+                <p className={cx('tnum text-sm font-semibold', billPos.remainingTaxable > 0 ? 'text-brand-700' : 'text-slate-400')}>
+                  {money(billPos.remainingTaxable)}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500">All three figures are before GST.</p>
+
+            {billPos.remainingTaxable <= 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
+                The whole contract is already invoiced on {billPos.invoiceCount} document(s). If the
+                client still owes you money, that is a <strong>payment</strong> outstanding, not a new
+                invoice — record what they have paid against the existing invoice and its balance will
+                show what is due. Raising a second tax invoice for the same work would declare the
+                supply twice and pay GST on it twice.
+              </div>
+            )}
+
+            {billPos.clientArchived && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
+                This project bills <strong>{billPos.clientName}</strong>, an archived client record.
+                Check that is still the right one before issuing.
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Document type">
+                <Select value={billType} onChange={(e) => setBillType(e.target.value as 'TAX' | 'PROFORMA')}>
+                  <option value="TAX">Tax invoice</option>
+                  <option value="PROFORMA">Proforma / payment request</option>
+                </Select>
+              </Field>
+              <Field label="Amount to bill">
+                <Select value={billMode} onChange={(e) => setBillMode(e.target.value as typeof billMode)}>
+                  <option value="REMAINING">Everything not yet invoiced</option>
+                  <option value="PERCENT">A percentage of the contract</option>
+                  <option value="AMOUNT">A specific amount</option>
+                </Select>
+              </Field>
+            </div>
+
+            {billMode === 'PERCENT' && (
+              <Field label="Percentage of contract" hint={`= ${money((billPos.contractTaxable * billPct) / 100)} before GST`}>
+                <Input type="number" min={1} max={100} value={billPct} onChange={(e) => setBillPct(Number(e.target.value))} />
+              </Field>
+            )}
+            {billMode === 'AMOUNT' && (
+              <Field label="Amount before GST">
+                <Input type="number" min={1} value={billAmount} onChange={(e) => setBillAmount(Number(e.target.value))} />
+              </Field>
+            )}
+
+            <Field label="Description on the invoice" hint="Leave blank to generate one">
+              <Input value={billLabel} onChange={(e) => setBillLabel(e.target.value)} placeholder="Second milestone — fabrication complete" />
+            </Field>
           </div>
         )}
       </Modal>
