@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import { badRequest, h, notFound, parseDate } from '../lib/http.js';
-import { round2 } from '../lib/money.js';
+import { formatINR, round2 } from '../lib/money.js';
 import { nextNumber } from '../lib/numbering.js';
 import { htmlToPdf } from '../lib/pdf.js';
 import { computeTotals, lineAmount } from '../lib/totals.js';
@@ -195,7 +195,7 @@ invoicesRouter.post(
 invoicesRouter.post(
   '/from-quotation',
   h(async (req, res) => {
-    const { quotationId, type, mode, percentage, label, poNumber, poDate } = z
+    const { quotationId, type, mode, percentage, label, poNumber, poDate, termsText } = z
       .object({
         quotationId: z.string().min(1),
         type: z.enum(['PROFORMA', 'TAX']).default('TAX'),
@@ -204,6 +204,7 @@ invoicesRouter.post(
         label: z.string().nullish(),
         poNumber: z.string().nullish(),
         poDate: z.string().nullish(),
+        termsText: z.string().nullish(),
       })
       .parse(req.body);
 
@@ -266,7 +267,9 @@ invoicesRouter.post(
         quotationNumber: quote.number,
         title: quote.title,
       }),
-      termsText: org.defaultInvoiceTerms ?? null,
+      // Explicit choice wins; otherwise our standard invoice terms, falling back
+      // to the quotation's own so the document is never issued with none.
+      termsText: termsText ?? org.defaultInvoiceTerms ?? quote.termsText ?? null,
       items,
     });
 
@@ -363,6 +366,232 @@ invoicesRouter.put(
  * exists. Touches no money, so it is safe on an issued document — the subject
  * line is recomposed unless it has been hand-written.
  */
+/**
+ * What is left to invoice on a project.
+ *
+ * Everything is compared ex-GST: the contract's taxable value against the
+ * taxable value already invoiced. Cancelled invoices do not count. Raising a
+ * second tax invoice for money already invoiced would declare the same supply
+ * twice and pay GST on it twice, so the caller is given the real remaining
+ * figure rather than being left to work it out.
+ */
+async function projectBilling(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      client: true,
+      quotation: { include: { sections: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } } } },
+      invoices: { where: { status: { not: 'CANCELLED' } } },
+    },
+  });
+  if (!project) throw notFound('Project');
+
+  const contractTaxable = round2(project.quotation?.taxableValue ?? 0);
+  const invoicedTaxable = round2(project.invoices.reduce((a, i) => a + i.taxableValue, 0));
+  const receivedTotal = round2(project.invoices.reduce((a, i) => a + i.amountPaid, 0));
+
+  return {
+    project,
+    contractTaxable,
+    invoicedTaxable,
+    remainingTaxable: round2(Math.max(0, contractTaxable - invoicedTaxable)),
+    receivedTotal,
+  };
+}
+
+invoicesRouter.get(
+  '/billing/project/:id',
+  h(async (req, res) => {
+    const b = await projectBilling(String(req.params.id));
+    res.json({
+      contractTaxable: b.contractTaxable,
+      invoicedTaxable: b.invoicedTaxable,
+      remainingTaxable: b.remainingTaxable,
+      receivedTotal: b.receivedTotal,
+      invoiceCount: b.project.invoices.length,
+      quotationNumber: b.project.quotation?.number ?? null,
+      clientName: b.project.client.name,
+      clientArchived: b.project.client.archived,
+    });
+  }),
+);
+
+/**
+ * Raise an invoice against a project rather than its quotation, so progressive
+ * billing knows what has already been invoiced.
+ */
+invoicesRouter.post(
+  '/from-project',
+  h(async (req, res) => {
+    const input = z
+      .object({
+        projectId: z.string().min(1),
+        type: z.enum(['PROFORMA', 'TAX']).default('TAX'),
+        mode: z.enum(['REMAINING', 'PERCENT', 'AMOUNT']).default('REMAINING'),
+        percentage: z.coerce.number().min(0.01).max(100).optional(),
+        amount: z.coerce.number().positive().optional(),
+        label: z.string().nullish(),
+        poNumber: z.string().nullish(),
+        poDate: z.string().nullish(),
+        termsText: z.string().nullish(),
+        allowOverInvoice: z.boolean().default(false),
+      })
+      .parse(req.body);
+
+    const b = await projectBilling(input.projectId);
+    const quote = b.project.quotation;
+    if (!quote) throw badRequest('This project has no source quotation to bill against.');
+
+    const base =
+      input.mode === 'REMAINING'
+        ? b.remainingTaxable
+        : input.mode === 'PERCENT'
+          ? round2(b.contractTaxable * ((input.percentage ?? 0) / 100))
+          : round2(input.amount ?? 0);
+
+    if (base <= 0) {
+      throw badRequest(
+        b.remainingTaxable <= 0
+          ? `Nothing left to invoice — the full contract value of this project is already on ${b.project.invoices.length} invoice(s). Record the payment against the existing invoice instead.`
+          : 'That works out to zero. Check the percentage or amount.',
+      );
+    }
+
+    if (!input.allowOverInvoice && round2(b.invoicedTaxable + base) > round2(b.contractTaxable + 0.5)) {
+      throw badRequest(
+        `That would invoice ${formatINR(b.invoicedTaxable + base)} against a contract of ${formatINR(b.contractTaxable)} — ` +
+          `${formatINR(b.remainingTaxable)} is left. Invoicing the same work twice also pays GST on it twice.`,
+      );
+    }
+
+    const gstRate = quote.taxMode === 'FLAT' ? quote.flatGstRate : quote.sections[0]?.items[0]?.gstRate ?? 18;
+    const org = await getOrg();
+
+    const parsed = invoiceSchema.parse({
+      type: input.type,
+      projectId: b.project.id,
+      quotationId: quote.id,
+      clientId: b.project.clientId,
+      taxMode: quote.taxMode,
+      flatGstRate: quote.flatGstRate,
+      placeOfSupplyState: quote.placeOfSupplyState ?? b.project.client.state,
+      placeOfSupplyCode: quote.placeOfSupplyCode ?? b.project.client.stateCode,
+      discountType: 'NONE',
+      discountValue: 0,
+      poNumber: input.poNumber?.trim() || null,
+      poDate: input.poDate || null,
+      notes: invoiceSubject({
+        poNumber: input.poNumber,
+        poDate: input.poDate,
+        quotationNumber: quote.number,
+        title: quote.title,
+      }),
+      termsText: input.termsText ?? org.defaultInvoiceTerms ?? quote.termsText ?? null,
+      items: [
+        {
+          description:
+            input.label?.trim() ||
+            (input.mode === 'REMAINING'
+              ? `Balance against ${quote.number} — ${quote.title}`
+              : `Progress claim against ${quote.number} — ${quote.title}`),
+          specNote: b.invoicedTaxable > 0 ? `Contract ${formatINR(b.contractTaxable)}, already invoiced ${formatINR(b.invoicedTaxable)}` : quote.title,
+          hsnSac: quote.sections[0]?.items[0]?.hsnSac ?? null,
+          unit: 'Lump sum',
+          quantity: 1,
+          rate: base,
+          discountPct: 0,
+          gstRate,
+        },
+      ],
+    });
+
+    const totals = await totalsOf(parsed);
+    const issueDate = new Date();
+    const number = await nextNumber(input.type === 'PROFORMA' ? org.proformaPrefix : org.invoicePrefix, issueDate);
+
+    const created = await prisma.invoice.create({
+      data: {
+        number,
+        type: parsed.type,
+        projectId: parsed.projectId ?? null,
+        quotationId: parsed.quotationId ?? null,
+        clientId: parsed.clientId,
+        issueDate,
+        dueDate: new Date(issueDate.getTime() + 15 * 86400000),
+        poNumber: parsed.poNumber?.trim() || null,
+        poDate: parseDate(parsed.poDate),
+        taxMode: parsed.taxMode,
+        flatGstRate: parsed.flatGstRate,
+        placeOfSupplyState: parsed.placeOfSupplyState ?? null,
+        placeOfSupplyCode: parsed.placeOfSupplyCode ?? null,
+        discountType: parsed.discountType,
+        discountValue: parsed.discountValue,
+        notes: parsed.notes ?? null,
+        termsText: parsed.termsText ?? null,
+        status: 'DRAFT',
+        ...totalsData(totals),
+        items: {
+          create: parsed.items.map((item, i) => ({
+            ...item,
+            specNote: item.specNote ?? null,
+            hsnSac: item.hsnSac ?? null,
+            order: i,
+            amount: lineAmount(item),
+          })),
+        },
+      },
+      include: fullInclude,
+    });
+
+    res.status(201).json(created);
+  }),
+);
+
+/**
+ * Point an invoice at a different client.
+ *
+ * Needed when the client record was wrong or has been superseded — a contact
+ * name that should not have been on the document, a corrected registered
+ * address. Totals are recomputed because the place of supply travels with the
+ * client, and a different state flips CGST + SGST to IGST.
+ */
+invoicesRouter.patch(
+  '/:id/client',
+  h(async (req, res) => {
+    const { clientId } = z.object({ clientId: z.string().min(1) }).parse(req.body);
+
+    const existing = await prisma.invoice.findUnique({
+      where: { id: String(req.params.id) },
+      include: { items: { orderBy: { order: 'asc' } } },
+    });
+    if (!existing) throw notFound('Invoice');
+
+    const client = await prisma.client.findUnique({ where: { id: clientId } });
+    if (!client) throw notFound('Client');
+
+    const totals = await totalsOf({
+      ...existing,
+      clientId,
+      // An override pinned to the old client would defeat the point.
+      placeOfSupplyCode: client.stateCode ?? null,
+      items: existing.items,
+    } as never);
+
+    res.json(
+      await prisma.invoice.update({
+        where: { id: existing.id },
+        data: {
+          clientId,
+          placeOfSupplyState: client.state ?? null,
+          placeOfSupplyCode: client.stateCode ?? null,
+          ...totalsData(totals),
+        },
+        include: fullInclude,
+      }),
+    );
+  }),
+);
+
 invoicesRouter.patch(
   '/:id/reference',
   h(async (req, res) => {

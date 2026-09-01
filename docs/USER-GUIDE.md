@@ -419,6 +419,44 @@ So do not set *paid* by hand — the two paid options are greyed out for that re
 invoice would claim to be settled while **Received** still read ₹0, and your reports and outstanding
 figures would disagree with it.
 
+### Billing part of a job, and billing the balance
+
+A project can be invoiced directly — **Money tab → Raise invoice** — and because it bills against
+the contract it knows what has already gone out. The dialog shows three figures, all **before GST**:
+
+| | |
+|---|---|
+| **Contract** | the accepted quotation's taxable value |
+| **Invoiced** | the taxable value of every invoice raised on this project, cancelled ones excluded |
+| **Left** | the difference — what you can still bill |
+
+Choose to bill everything left, a percentage of the contract, or a specific amount. Anything that
+would take the total past the contract value is refused.
+
+> **The trap worth understanding.** An unpaid balance is not the same as an uninvoiced balance. If
+> you have already raised a tax invoice for the whole job and the client has only part-paid, the
+> money owing is a **payment** outstanding, not a new invoice. Raising a second tax invoice for the
+> same work declares the supply to GST twice and makes you liable for the tax twice.
+>
+> The right move is to record what they have paid against the existing invoice. Its PDF then prints
+> **Amount received** and **Balance due**, which is the document a client is asking for when they say
+> "invoice me for the balance". Send that alongside their PO and your completion photos.
+>
+> Bill progressively — 40% on order, 40% on delivery, 20% on handover — and each slice is a real
+> invoice raised as you go, with *Left* falling each time.
+
+### Correcting who an invoice is billed to
+
+Client records get corrected after documents exist — a contact name that should not have been on it,
+the wrong branch address. Open the invoice and use **Change** beside *Billed to*.
+
+The address, GSTIN and contact all come from the client record, so the invoice picks up the corrected
+details. Tax is recalculated, because place of supply travels with the client: moving to a client in
+another state switches between CGST + SGST and IGST.
+
+Archived client records still appear in that list, and an invoice billed to one is flagged in red —
+archiving a client does not rewrite documents that already point at it.
+
 ## 9. Reports
 
 | Report | What it answers |
