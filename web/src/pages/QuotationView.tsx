@@ -45,6 +45,7 @@ export function QuotationView() {
   const [milestoneLabel, setMilestoneLabel] = useState('');
   const [poNumber, setPoNumber] = useState('');
   const [poDate, setPoDate] = useState('');
+  const [useQuoteTerms, setUseQuoteTerms] = useState(false);
   const [note, setNote] = useState('');
 
   if (loading) return <Loading />;
@@ -75,6 +76,7 @@ export function QuotationView() {
         label: milestoneLabel || null,
         poNumber: poNumber.trim() || null,
         poDate: poDate || null,
+        termsText: useQuoteTerms ? q.termsText ?? null : null,
       });
       setInvoicing(false);
       navigate(`/invoices?open=${invoice.id}`);
@@ -432,6 +434,21 @@ export function QuotationView() {
               <option value="MILESTONE">Milestone — a percentage of the quote value</option>
             </Select>
           </Field>
+          <Field label="Terms to print on the invoice">
+            <Select
+              value={useQuoteTerms ? 'QUOTE' : 'ORG'}
+              onChange={(e) => setUseQuoteTerms(e.target.value === 'QUOTE')}
+            >
+              <option value="ORG">My standard invoice terms</option>
+              <option value="QUOTE">This quotation&rsquo;s terms — what the client agreed</option>
+            </Select>
+          </Field>
+          <p className="-mt-2 text-xs text-slate-500">
+            {useQuoteTerms
+              ? 'Brings the payment schedule, exclusions and warranty across so the invoice cannot contradict the quotation. Read it once afterwards — a validity clause belongs on a quotation, not an invoice.'
+              : 'Generic payment terms. If the quotation set out a payment schedule, these will not match it.'}
+          </p>
+
           <div className="rounded-lg border border-slate-200 p-3.5">
             <p className="mb-3 text-sm font-medium text-slate-800">Client's purchase order</p>
             <div className="grid gap-3 sm:grid-cols-2">
