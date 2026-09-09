@@ -134,6 +134,7 @@ export type Quotation = {
   quoteDate: string;
   validUntil: string | null;
   taxMode: 'FULL_GST' | 'FLAT';
+  showTaxBreakup: boolean;
   flatGstRate: number;
   placeOfSupplyState: string | null;
   placeOfSupplyCode: string | null;

@@ -142,6 +142,25 @@ The right-hand panel updates as you type:
 A document-level discount (percentage or amount) is spread across the lines in proportion to their
 value, so each line still carries the right tax.
 
+### Showing or hiding GST on a quotation
+
+Some clients want the tax laid out; others only want the price of the work, with GST discussed
+separately. **Show GST on the client's copy**, beside Tax mode, decides which the client sees.
+
+| Setting | What prints |
+|---|---|
+| **Show** (default) | GST% and HSN/SAC columns, the rate-wise tax summary, and a grand total including GST |
+| **Hide** | Neither tax column, no tax summary. The document ends at **Total before GST**, followed by *GST — Extra, as applicable* |
+
+The amount in words follows whichever total is printed, so the document never contradicts itself.
+
+This is presentation only. Your stored totals, margin, profitability and everything that happens
+when the quotation converts to a project are identical either way — the setting changes the client's
+copy, not the arithmetic.
+
+**Tax invoices always show GST**, whatever the quotation was set to. A tax invoice has to show the
+tax charged, so the option is not offered there.
+
 ### If the save button is greyed out
 
 **Create quotation** stays disabled until the document is valid, and the reason is printed next to

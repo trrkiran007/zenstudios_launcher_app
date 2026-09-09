@@ -824,6 +824,8 @@ async function invoiceDocument(id: string): Promise<DocumentModel> {
     },
     sections: [{ name: 'Items', items: invoice.items }],
     totals,
+    // Not configurable: a tax invoice has to show the tax charged.
+    showTax: true,
     showHsn: true,
     showSectionTotals: false,
     notes: null,

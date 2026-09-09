@@ -154,6 +154,9 @@ model Quotation {
   validUntil     DateTime?
 
   taxMode            String  @default("FULL_GST") // FULL_GST | FLAT
+  // Print the tax breakdown, or quote the pre-GST figure with GST noted as extra.
+  // Presentation only: stored totals and margins are unaffected either way.
+  showTaxBreakup     Boolean @default(true)
   flatGstRate        Float   @default(18)
   placeOfSupplyState String?
   placeOfSupplyCode  String?

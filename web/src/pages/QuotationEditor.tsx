@@ -42,6 +42,7 @@ type Draft = {
   quoteDate: string;
   validUntil: string;
   taxMode: 'FULL_GST' | 'FLAT';
+  showTaxBreakup: boolean;
   flatGstRate: number;
   placeOfSupplyState: string;
   placeOfSupplyCode: string;
@@ -84,6 +85,7 @@ export function QuotationEditor() {
     quoteDate: dateInput(q.quoteDate),
     validUntil: dateInput(q.validUntil),
     taxMode: q.taxMode,
+    showTaxBreakup: q.showTaxBreakup ?? true,
     flatGstRate: q.flatGstRate,
     placeOfSupplyState: q.placeOfSupplyState ?? '',
     placeOfSupplyCode: q.placeOfSupplyCode ?? '',
@@ -120,6 +122,7 @@ export function QuotationEditor() {
         quoteDate: dateInput(existing.quoteDate),
         validUntil: dateInput(existing.validUntil),
         taxMode: existing.taxMode,
+        showTaxBreakup: existing.showTaxBreakup ?? true,
         flatGstRate: existing.flatGstRate,
         placeOfSupplyState: existing.placeOfSupplyState ?? '',
         placeOfSupplyCode: existing.placeOfSupplyCode ?? '',
@@ -158,6 +161,7 @@ export function QuotationEditor() {
       quoteDate: dateInput(today),
       validUntil: dateInput(new Date(today.getTime() + (org?.defaultValidityDays ?? 15) * 86400000)),
       taxMode: 'FULL_GST',
+      showTaxBreakup: true,
       flatGstRate: 18,
       placeOfSupplyState: '',
       placeOfSupplyCode: '',
@@ -438,6 +442,21 @@ export function QuotationEditor() {
                   <option value="FLAT">Flat rate — whole quote</option>
                 </Select>
               </Field>
+
+              <Field label="Show GST on the client's copy">
+                <Select
+                  value={draft.showTaxBreakup ? 'SHOW' : 'HIDE'}
+                  onChange={(e) => set('showTaxBreakup', e.target.value === 'SHOW')}
+                >
+                  <option value="SHOW">Show — prints the tax and the total including GST</option>
+                  <option value="HIDE">Hide — prints the pre-GST total, GST noted as extra</option>
+                </Select>
+              </Field>
+              <p className="-mt-1 text-xs text-slate-500 sm:col-span-2">
+                {draft.showTaxBreakup
+                  ? 'The GST% column, the rate-wise summary and the grand total including GST all print.'
+                  : 'The GST% and HSN/SAC columns come off, and the document ends at Total before GST with "GST — Extra, as applicable". Your own totals and margin are unaffected, and tax invoices always show GST regardless.'}
+              </p>
 
               {draft.taxMode === 'FLAT' ? (
                 <Field label="Flat GST rate (%)">
