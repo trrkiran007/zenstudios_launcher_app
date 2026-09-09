@@ -75,6 +75,12 @@ export type DocumentModel = {
   sections: DocSection[];
   totals: Totals;
   showHsn: boolean;
+  /**
+   * Print the tax breakdown. When false the document quotes the pre-GST figure
+   * and says GST is extra — used for client-facing quotations where the tax
+   * line is a distraction. A tax invoice must never set this false.
+   */
+  showTax: boolean;
   showSectionTotals: boolean;
   notes?: string | null;
   terms?: string | null;
@@ -133,8 +139,8 @@ function partyBlock(p: DocParty): string {
 }
 
 function itemsTable(model: DocumentModel): string {
-  const { showHsn } = model;
-  const cols = showHsn ? 8 : 7;
+  const { showHsn, showTax } = model;
+  const cols = 6 + (showHsn ? 1 : 0) + (showTax ? 1 : 0);
   const head = `
     <thead>
       <tr>
@@ -144,7 +150,7 @@ function itemsTable(model: DocumentModel): string {
         <th class="c-unit">Unit</th>
         <th class="c-num">Qty</th>
         <th class="c-num">Rate</th>
-        <th class="c-num">GST%</th>
+        ${showTax ? '<th class="c-num">GST%</th>' : ''}
         <th class="c-num">Amount</th>
       </tr>
     </thead>`;
@@ -166,7 +172,7 @@ function itemsTable(model: DocumentModel): string {
           <td class="c-unit">${esc(it.unit)}</td>
           <td class="c-num">${qty(it.quantity)}</td>
           <td class="c-num">${formatINR(it.rate)}</td>
-          <td class="c-num">${round2(it.gstRate)}%</td>
+          ${showTax ? `<td class="c-num">${round2(it.gstRate)}%</td>` : ''}
           <td class="c-num">${formatINR(it.amount)}</td>
         </tr>`,
         )
@@ -195,7 +201,7 @@ function itemsTable(model: DocumentModel): string {
 
 function taxBreakup(model: DocumentModel): string {
   const t = model.totals;
-  if (!t.slabs.length) return '';
+  if (!model.showTax || !t.slabs.length) return '';
   const rows = t.slabs
     .map(
       (s) => `<tr>
@@ -228,6 +234,17 @@ function totalsBlock(model: DocumentModel): string {
   const row = (label: string, value: string, cls = '') =>
     `<tr class="${cls}"><td>${label}</td><td class="c-num">${value}</td></tr>`;
   const balance = model.amountPaid !== undefined ? round2(t.grandTotal - model.amountPaid) : null;
+
+  if (!model.showTax) {
+    // Pre-GST presentation. The headline figure is the taxable value, and the
+    // document says so, so nobody can read it as the amount payable.
+    return `<table class="totals">
+      ${row('Subtotal', formatINR(t.subtotal))}
+      ${t.discountAmount ? row('Discount', `− ${formatINR(t.discountAmount)}`) : ''}
+      ${row('<b>Total before GST</b>', `<b>${formatINR(t.taxableValue)}</b>`, 'grand')}
+      ${row('GST', 'Extra, as applicable')}
+    </table>`;
+  }
 
   return `<table class="totals">
     ${row('Subtotal', formatINR(t.subtotal))}
@@ -417,7 +434,7 @@ export function renderDocumentHtml(model: DocumentModel): string {
   <div class="foot">
     <div class="foot-left">
       ${taxBreakup(model)}
-      <div class="words"><b>Amount in words:</b> ${esc(amountInWords(model.totals.grandTotal))}</div>
+      <div class="words"><b>Amount in words:</b> ${esc(amountInWords(model.showTax ? model.totals.grandTotal : model.totals.taxableValue))}${model.showTax ? '' : ' (before GST)'}</div>
       ${
         bankRows.length
           ? `<div class="block"><h4>Payment details</h4><table class="bank">${bankRows
