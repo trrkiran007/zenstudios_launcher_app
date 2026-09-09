@@ -434,6 +434,8 @@ invoicesRouter.post(
         poNumber: z.string().nullish(),
         poDate: z.string().nullish(),
         termsText: z.string().nullish(),
+        /** Print the terms the client agreed on the quotation, not our generic ones. */
+        useQuotationTerms: z.boolean().default(false),
         allowOverInvoice: z.boolean().default(false),
       })
       .parse(req.body);
@@ -486,7 +488,9 @@ invoicesRouter.post(
         quotationNumber: quote.number,
         title: quote.title,
       }),
-      termsText: input.termsText ?? org.defaultInvoiceTerms ?? quote.termsText ?? null,
+      termsText: input.useQuotationTerms
+        ? quote.termsText ?? org.defaultInvoiceTerms ?? null
+        : input.termsText ?? org.defaultInvoiceTerms ?? quote.termsText ?? null,
       items: [
         {
           description:
@@ -555,6 +559,53 @@ invoicesRouter.post(
  * address. Totals are recomputed because the place of supply travels with the
  * client, and a different state flips CGST + SGST to IGST.
  */
+/**
+ * The terms printed on an invoice.
+ *
+ * Separate from PUT because that rebuilds the line items and is refused once a
+ * payment exists — but wording that contradicts what was agreed still has to be
+ * fixable on a live document. Touches no amounts, so it is safe on an issued
+ * and part-paid invoice.
+ *
+ * `source` fills the box from the obvious places rather than making the user
+ * retype: the quotation the price was agreed on, or the standard invoice terms.
+ */
+invoicesRouter.patch(
+  '/:id/terms',
+  h(async (req, res) => {
+    const { termsText, source } = z
+      .object({
+        termsText: z.string().nullish(),
+        source: z.enum(['QUOTATION', 'ORG']).optional(),
+      })
+      .parse(req.body);
+
+    const existing = await prisma.invoice.findUnique({
+      where: { id: String(req.params.id) },
+      include: { quotation: { select: { termsText: true } } },
+    });
+    if (!existing) throw notFound('Invoice');
+
+    let next = termsText ?? existing.termsText;
+    if (source === 'QUOTATION') {
+      if (!existing.quotation?.termsText) {
+        throw badRequest('This invoice has no source quotation to take terms from.');
+      }
+      next = existing.quotation.termsText;
+    } else if (source === 'ORG') {
+      next = (await getOrg()).defaultInvoiceTerms ?? null;
+    }
+
+    res.json(
+      await prisma.invoice.update({
+        where: { id: existing.id },
+        data: { termsText: next?.trim() || null },
+        include: fullInclude,
+      }),
+    );
+  }),
+);
+
 invoicesRouter.patch(
   '/:id/client',
   h(async (req, res) => {

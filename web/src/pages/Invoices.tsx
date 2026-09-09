@@ -221,6 +221,8 @@ export function Invoices() {
 
             <BilledTo invoice={detail} onSaved={async () => { await reload(); await reloadDetail(); }} />
 
+            <TermsEditor invoice={detail} onSaved={async () => { await reload(); await reloadDetail(); }} />
+
             <PoEditor invoice={detail} onSaved={async () => { await reload(); await reloadDetail(); }} />
 
             <Table>
@@ -491,6 +493,68 @@ function BilledTo({ invoice, onSaved }: { invoice: Invoice; onSaved: () => Promi
           >
             Change billed-to
           </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The terms printed at the foot of the invoice.
+ *
+ * An invoice is raised with the standard invoice terms, which say nothing about
+ * what was actually agreed. Where a quotation set out a payment schedule, the
+ * two can end up contradicting each other on the same job — so both sources are
+ * one click away, and the box itself is free text.
+ */
+function TermsEditor({ invoice, onSaved }: { invoice: Invoice; onSaved: () => Promise<void> }) {
+  const { run, busy } = useAction();
+  const [text, setText] = useState(invoice.termsText ?? '');
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => setText(invoice.termsText ?? ''), [invoice.id, invoice.termsText]);
+
+  const changed = text !== (invoice.termsText ?? '');
+
+  const save = (body: Record<string, unknown>) =>
+    run(async () => {
+      await api.patch(`/invoices/${invoice.id}/terms`, body);
+      await onSaved();
+    }, 'Terms updated');
+
+  const firstLine = (invoice.termsText ?? '').split('\n').find((l) => l.trim()) ?? 'No terms on this invoice';
+
+  return (
+    <div className="rounded-lg border border-slate-200 p-3.5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-800">Terms printed on the document</p>
+          {!open && <p className="mt-0.5 truncate text-xs text-slate-500">{firstLine}</p>}
+        </div>
+        <Button size="sm" onClick={() => setOpen((o) => !o)}>{open ? 'Close' : 'Review'}</Button>
+      </div>
+
+      {open && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <div className="mb-2 flex flex-wrap gap-2">
+            {invoice.quotationId && (
+              <Button size="sm" disabled={busy} onClick={() => save({ source: 'QUOTATION' })}>
+                Use the quotation&rsquo;s terms
+              </Button>
+            )}
+            <Button size="sm" disabled={busy} onClick={() => save({ source: 'ORG' })}>
+              Use my standard invoice terms
+            </Button>
+          </div>
+          <Textarea rows={10} value={text} onChange={(e) => setText(e.target.value)} />
+          <div className="mt-2 flex items-center gap-3">
+            <Button variant="primary" size="sm" loading={busy} disabled={!changed} onClick={() => save({ termsText: text })}>
+              Save terms
+            </Button>
+            <p className="text-xs text-slate-500">
+              Wording only — no amounts change, so this is safe on an issued invoice.
+            </p>
+          </div>
         </div>
       )}
     </div>

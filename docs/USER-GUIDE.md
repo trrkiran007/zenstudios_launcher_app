@@ -445,6 +445,25 @@ would take the total past the contract value is refused.
 > Bill progressively — 40% on order, 40% on delivery, 20% on handover — and each slice is a real
 > invoice raised as you go, with *Left* falling each time.
 
+### Which terms print on an invoice
+
+An invoice starts with your **standard invoice terms** from Settings — payment due, interest,
+jurisdiction. Those say nothing about what was actually agreed, so where a quotation set out a
+payment schedule the two documents can end up contradicting each other on the same job.
+
+When raising an invoice, **Terms to print on the invoice** lets you pick:
+
+- **My standard invoice terms** — the generic ones
+- **The quotation's terms** — the payment schedule, exclusions and warranty the client actually
+  agreed to
+
+On an existing invoice, open it and use **Review** beside *Terms printed on the document*. Both
+sources are one click, and the box is free text. It changes wording only, so it is safe on an issued
+and part-paid invoice — which a full edit is not, once a payment exists.
+
+> Read quotation terms once after copying them. A clause like *"valid for 30 days from the date of
+> issue"* belongs on a quotation and reads oddly on an invoice — delete that line and renumber.
+
 ### Correcting who an invoice is billed to
 
 Client records get corrected after documents exist — a contact name that should not have been on it,

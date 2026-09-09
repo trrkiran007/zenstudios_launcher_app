@@ -44,6 +44,7 @@ export function ProjectDetail({
   const [billAmount, setBillAmount] = useState(0);
   const [billType, setBillType] = useState<'TAX' | 'PROFORMA'>('TAX');
   const [billLabel, setBillLabel] = useState('');
+  const [billQuoteTerms, setBillQuoteTerms] = useState(false);
 
   const [movingTo, setMovingTo] = useState<string | null>(null);
   const [taskForm, setTaskForm] = useState<Partial<Task> | null>(null);
@@ -92,6 +93,7 @@ export function ProjectDetail({
         ...(billMode === 'PERCENT' ? { percentage: billPct } : {}),
         ...(billMode === 'AMOUNT' ? { amount: billAmount } : {}),
         label: billLabel.trim() || null,
+        useQuotationTerms: billQuoteTerms,
       });
       setBilling(false);
       await Promise.all([reload(), reloadBilling()]);
@@ -833,6 +835,21 @@ export function ProjectDetail({
               <Field label="Amount before GST">
                 <Input type="number" min={1} value={billAmount} onChange={(e) => setBillAmount(Number(e.target.value))} />
               </Field>
+            )}
+
+            <Field label="Terms to print on the invoice">
+              <Select
+                value={billQuoteTerms ? 'QUOTE' : 'ORG'}
+                onChange={(e) => setBillQuoteTerms(e.target.value === 'QUOTE')}
+              >
+                <option value="ORG">My standard invoice terms</option>
+                <option value="QUOTE">The quotation&rsquo;s terms — what the client agreed</option>
+              </Select>
+            </Field>
+            {billQuoteTerms && (
+              <p className="-mt-2 text-xs text-slate-500">
+                Read them once afterwards — a validity clause belongs on a quotation, not an invoice.
+              </p>
             )}
 
             <Field label="Description on the invoice" hint="Leave blank to generate one">
