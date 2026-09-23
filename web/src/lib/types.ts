@@ -95,6 +95,9 @@ export type CatalogItem = {
   hsnSac: string | null;
   gstRate: number;
   specNote: string | null;
+  carcassBuilt: boolean;
+  hardwareClass: string | null;
+  finishClass: string | null;
   active: boolean;
 };
 
@@ -135,6 +138,11 @@ export type Quotation = {
   validUntil: string | null;
   taxMode: 'FULL_GST' | 'FLAT';
   showTaxBreakup: boolean;
+  priceDisplay: 'DETAILED' | 'AMOUNT_ONLY' | 'SECTION_ONLY';
+  thicknessMm: number;
+  woodTierId: string | null;
+  laminateTierId: string | null;
+  hardwareTierId: string | null;
   flatGstRate: number;
   placeOfSupplyState: string | null;
   placeOfSupplyCode: string | null;
@@ -404,4 +412,27 @@ export type SystemInfo = {
   appVersion?: string;
   /** True inside the Electron shell — switches on the draggable title strip. */
   desktop?: boolean;
+};
+
+export type SpecTier = {
+  id: string;
+  kind: 'WOOD' | 'LAMINATE' | 'HARDWARE';
+  key: string;
+  name: string;
+  brands: string | null;
+  specNote: string | null;
+  order: number;
+  rateDelta: number;
+  costDelta: number;
+  rateDelta19: number;
+  costDelta19: number;
+  multiplier: number;
+  isDefault: boolean;
+};
+
+export type SpecTiers = {
+  wood: SpecTier[];
+  laminate: SpecTier[];
+  hardware: SpecTier[];
+  hardwareRates: Record<string, { rate: number; cost: number; label: string }>;
 };

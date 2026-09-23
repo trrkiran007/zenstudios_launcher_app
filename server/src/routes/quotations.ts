@@ -5,6 +5,7 @@ import { badRequest, h, notFound, parseDate } from '../lib/http.js';
 import { round2 } from '../lib/money.js';
 import { nextNumber, projectPrefix, quotePrefix } from '../lib/numbering.js';
 import { htmlToPdf } from '../lib/pdf.js';
+import { describeSpec } from '../lib/spec-pricing.js';
 import { computeTotals, lineAmount } from '../lib/totals.js';
 import { renderDocumentHtml, type DocumentModel } from '../templates/document.js';
 import { getOrg } from './settings.js';
@@ -57,6 +58,9 @@ const quotationSchema = z.object({
 const fullInclude = {
   businessType: true,
   client: true,
+  woodTier: true,
+  laminateTier: true,
+  hardwareTier: true,
   sections: { orderBy: { order: 'asc' as const }, include: { items: { orderBy: { order: 'asc' as const } } } },
   project: { include: { stage: true } },
   revisions: { select: { id: true, number: true, version: true, status: true } },
@@ -520,6 +524,9 @@ export async function quotationDocument(id: string): Promise<DocumentModel> {
     include: {
       client: true,
       businessType: true,
+      woodTier: true,
+      laminateTier: true,
+      hardwareTier: true,
       sections: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } },
     },
   });
@@ -553,6 +560,13 @@ export async function quotationDocument(id: string): Promise<DocumentModel> {
     sections: quote.sections.map((s) => ({ name: s.name, notes: s.notes, items: s.items })),
     totals,
     showTax: quote.showTaxBreakup,
+    priceDisplay: (quote.priceDisplay as 'DETAILED' | 'AMOUNT_ONLY' | 'SECTION_ONLY') ?? 'DETAILED',
+    specSummary: describeSpec({
+      thicknessMm: quote.thicknessMm,
+      wood: quote.woodTier,
+      laminate: quote.laminateTier,
+      hardware: quote.hardwareTier,
+    }),
     // HSN/SAC is a tax code — it has no place on a document that is not showing tax.
     showHsn: quote.taxMode === 'FULL_GST' && quote.showTaxBreakup,
     showSectionTotals: quote.businessType.layout === 'SECTIONED',

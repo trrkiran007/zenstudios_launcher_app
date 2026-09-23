@@ -22,8 +22,12 @@ function hardwareClassOf(name: string, category: string): string | null {
     if (n.includes('counter top') || n.includes('backsplash')) return null; // surfaces, not cabinets
     return n.includes('wall unit') ? 'KITCHEN_WALL' : 'KITCHEN_BASE';
   }
-  if (['Living & Dining', 'Pooja & Foyer', 'Beds & Bedroom', 'Bathroom'].includes(category)) {
-    return /unit|storage|cabinet|vanity|rack|shelf|bookshelf|sideboard/.test(n) ? 'STORAGE' : null;
+  // Matched loosely on purpose: categories get renamed in the live catalogue
+  // ("Living & Dining" had become "Living"), and an exact list silently skips
+  // whatever was renamed.
+  const c = category.toLowerCase();
+  if (/living|dining|pooja|foyer|bed|bathroom|study/.test(c)) {
+    return /unit|storage|cabinet|vanity|rack|shelf|bookshelf|sideboard|dresser/.test(n) ? 'STORAGE' : null;
   }
   return null;
 }
@@ -42,7 +46,9 @@ function finishClassOf(name: string): string {
 async function main() {
   const apply = process.argv.includes('--apply');
   const items = await prisma.catalogItem.findMany({
-    where: { businessType: { key: 'INTERIOR' }, unit: 'Sq.ft' },
+    // carcassBuilt already set means this item has been re-based; running twice
+    // would subtract the hardware allowance a second time.
+    where: { businessType: { key: 'INTERIOR' }, unit: 'Sq.ft', carcassBuilt: false },
     orderBy: [{ category: 'asc' }, { name: 'asc' }],
   });
 

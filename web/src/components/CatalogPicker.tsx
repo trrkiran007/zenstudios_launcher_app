@@ -24,7 +24,9 @@ export function CatalogPicker({
   open: boolean;
   onClose: () => void;
   businessTypeId: string;
-  onPick: (items: QuotationItem[]) => void;
+  /** The raw item travels with the line so the caller can price it against
+   *  the quotation's specification and add the matching hardware line. */
+  onPick: (picks: { item: CatalogItem; line: QuotationItem }[]) => void;
 }) {
   const { data, loading } = useApi<CatalogItem[]>(
     open && businessTypeId ? `/catalog?businessTypeId=${businessTypeId}` : null,
@@ -58,7 +60,7 @@ export function CatalogPicker({
       .filter(([, qty]) => qty > 0)
       .map(([id, qty]) => {
         const item = (data ?? []).find((i) => i.id === id)!;
-        return { ...catalogToLine(item), quantity: qty };
+        return { item, line: { ...catalogToLine(item), quantity: qty } };
       });
     onPick(items);
     setPicked({});
