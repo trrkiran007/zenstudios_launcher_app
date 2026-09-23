@@ -77,6 +77,7 @@ model BusinessType {
   quotations   Quotation[]
   projects     Project[]
   catalogItems CatalogItem[]
+  specTiers    SpecTier[]
 }
 
 model PipelineStage {
@@ -134,6 +135,14 @@ model CatalogItem {
   hsnSac         String?
   gstRate        Float   @default(18)
   specNote       String?
+  /// Built from sheet material, so the wood tier moves its rate.
+  carcassBuilt   Boolean @default(false)
+  /// WARDROBE | KITCHEN_BASE | KITCHEN_WALL | STORAGE — picks the hardware
+  /// allowance. Null means the item generates no hardware line.
+  hardwareClass  String?
+  /// LAMINATE | ACRYLIC | PU | VENEER | MEMBRANE | GLASS | MIRROR — the
+  /// laminate tier moves only LAMINATE items; the rest carry their own finish.
+  finishClass    String?
   active         Boolean @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -157,6 +166,13 @@ model Quotation {
   // Print the tax breakdown, or quote the pre-GST figure with GST noted as extra.
   // Presentation only: stored totals and margins are unaffected either way.
   showTaxBreakup     Boolean @default(true)
+  /// DETAILED | AMOUNT_ONLY | SECTION_ONLY — how much pricing the client sees.
+  priceDisplay       String  @default("DETAILED")
+  /// 16 or 19. Board is laminated both faces, so 16mm finishes at 18-19mm.
+  thicknessMm        Int     @default(16)
+  woodTierId         String?
+  laminateTierId     String?
+  hardwareTierId     String?
   flatGstRate        Float   @default(18)
   placeOfSupplyState String?
   placeOfSupplyCode  String?
@@ -187,6 +203,9 @@ model Quotation {
 
   businessType BusinessType       @relation(fields: [businessTypeId], references: [id])
   client       Client             @relation(fields: [clientId], references: [id])
+  woodTier     SpecTier?          @relation("QuotationWoodTier", fields: [woodTierId], references: [id])
+  laminateTier SpecTier?          @relation("QuotationLaminateTier", fields: [laminateTierId], references: [id])
+  hardwareTier SpecTier?          @relation("QuotationHardwareTier", fields: [hardwareTierId], references: [id])
   parent       Quotation?         @relation("Revisions", fields: [parentId], references: [id])
   revisions    Quotation[]        @relation("Revisions")
   sections     QuotationSection[]
@@ -222,6 +241,9 @@ model QuotationItem {
   discountPct   Float   @default(0)
   gstRate       Float   @default(18)
   amount        Float   @default(0)
+  /// LINE | HARDWARE — a HARDWARE row is generated from the cabinet above it
+  /// and is re-priced when the hardware tier changes.
+  kind          String  @default("LINE")
 
   section QuotationSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 }
@@ -470,4 +492,41 @@ model CompetitorLineItem {
 model Sequence {
   key   String @id
   value Int    @default(0)
+}
+
+/// A named specification level the whole quotation is priced at.
+///
+/// WOOD tiers move the cabinet rate by a fixed rupee amount per sq.ft, because
+/// the carcass is identical whatever the shutter finish — a percentage would
+/// wrongly inflate the expensive finishes. HARDWARE tiers instead multiply the
+/// per-cabinet-type hardware allowance.
+model SpecTier {
+  id             String  @id @default(cuid())
+  businessTypeId String
+  kind           String // WOOD | LAMINATE | HARDWARE
+  key            String
+  name           String
+  brands         String?
+  specNote       String?
+  order          Int     @default(0)
+  /// WOOD / LAMINATE: rupees per sq.ft added to the item's rate.
+  rateDelta      Float   @default(0)
+  costDelta      Float   @default(0)
+  /// WOOD only: the same delta when the quotation is built in 19mm. The uplift
+  /// is not flat — it runs from +Rs 51/sq.ft on MR to +Rs 103 on Architect.
+  rateDelta19    Float   @default(0)
+  costDelta19    Float   @default(0)
+  /// HARDWARE: multiplier on the cabinet type's base hardware rate.
+  multiplier     Float   @default(1)
+  isDefault      Boolean @default(false)
+  active         Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessType BusinessType @relation(fields: [businessTypeId], references: [id], onDelete: Cascade)
+  quotationsWood     Quotation[] @relation("QuotationWoodTier")
+  quotationsHardware Quotation[] @relation("QuotationHardwareTier")
+  quotationsLaminate Quotation[] @relation("QuotationLaminateTier")
+
+  @@unique([businessTypeId, kind, key])
 }
