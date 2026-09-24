@@ -8,6 +8,13 @@
  */
 import type { CatalogItem, QuotationItem, SpecTier, SpecTiers } from './types';
 
+/** Prefix every generated hardware row carries, and the fallback used to
+ *  recognise rows saved before QuotationItem.kind was persisted. */
+export const HARDWARE_PREFIX = 'Hardware & accessories';
+
+export const isHardwareLine = (line: { kind?: string; description?: string }) =>
+  line.kind === 'HARDWARE' || (line.description ?? '').startsWith(HARDWARE_PREFIX);
+
 export type Spec = {
   thicknessMm: number;
   wood?: SpecTier;
@@ -47,7 +54,7 @@ export function hardwareLineFor(item: CatalogItem, quantity: number, spec: Spec)
     // when the specification changes.
     kind: 'HARDWARE',
     catalogItemId: item.id,
-    description: `Hardware & accessories — ${spec.hardware.name}`,
+    description: `${HARDWARE_PREFIX} — ${spec.hardware.name}`,
     specNote: spec.hardware.specNote ?? 'Soft-close hinges, drawer channels, handles and dress accessories.',
     hsnSac: '8302',
     unit: 'Set',
