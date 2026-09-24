@@ -81,6 +81,14 @@ export type DocumentModel = {
    * line is a distraction. A tax invoice must never set this false.
    */
   showTax: boolean;
+  /**
+   * DETAILED | AMOUNT_ONLY | SECTION_ONLY — how much pricing the client sees.
+   * AMOUNT_ONLY hides quantity and unit as well as the rate; leaving those
+   * visible would let anyone divide the amount and recover the rate.
+   */
+  priceDisplay: 'DETAILED' | 'AMOUNT_ONLY' | 'SECTION_ONLY';
+  /** e.g. "BWP 710 16mm · Standard laminate · Ebco hardware". */
+  specSummary?: string | null;
   showSectionTotals: boolean;
   notes?: string | null;
   terms?: string | null;
@@ -139,19 +147,20 @@ function partyBlock(p: DocParty): string {
 }
 
 function itemsTable(model: DocumentModel): string {
-  const { showHsn, showTax } = model;
-  const cols = 6 + (showHsn ? 1 : 0) + (showTax ? 1 : 0);
+  const { showHsn, showTax, priceDisplay } = model;
+  const detailed = priceDisplay === 'DETAILED';
+  const showAmounts = priceDisplay !== 'SECTION_ONLY';
+  const cols =
+    2 + (showHsn ? 1 : 0) + (detailed ? 3 : 0) + (detailed && showTax ? 1 : 0) + (showAmounts ? 1 : 0);
   const head = `
     <thead>
       <tr>
         <th class="c-sn">#</th>
         <th class="c-desc">Description</th>
         ${showHsn ? '<th class="c-hsn">HSN/SAC</th>' : ''}
-        <th class="c-unit">Unit</th>
-        <th class="c-num">Qty</th>
-        <th class="c-num">Rate</th>
-        ${showTax ? '<th class="c-num">GST%</th>' : ''}
-        <th class="c-num">Amount</th>
+        ${detailed ? '<th class="c-unit">Unit</th><th class="c-num">Qty</th><th class="c-num">Rate</th>' : ''}
+        ${detailed && showTax ? '<th class="c-num">GST%</th>' : ''}
+        ${showAmounts ? '<th class="c-num">Amount</th>' : ''}
       </tr>
     </thead>`;
 
@@ -169,11 +178,9 @@ function itemsTable(model: DocumentModel): string {
             ${it.discountPct ? `<div class="item-spec">Line discount ${round2(it.discountPct)}%</div>` : ''}
           </td>
           ${showHsn ? `<td class="c-hsn">${esc(it.hsnSac || '—')}</td>` : ''}
-          <td class="c-unit">${esc(it.unit)}</td>
-          <td class="c-num">${qty(it.quantity)}</td>
-          <td class="c-num">${formatINR(it.rate)}</td>
-          ${showTax ? `<td class="c-num">${round2(it.gstRate)}%</td>` : ''}
-          <td class="c-num">${formatINR(it.amount)}</td>
+          ${detailed ? `<td class="c-unit">${esc(it.unit)}</td><td class="c-num">${qty(it.quantity)}</td><td class="c-num">${formatINR(it.rate)}</td>` : ''}
+          ${detailed && showTax ? `<td class="c-num">${round2(it.gstRate)}%</td>` : ''}
+          ${showAmounts ? `<td class="c-num">${formatINR(it.amount)}</td>` : ''}
         </tr>`,
         )
         .join('');
@@ -428,6 +435,7 @@ export function renderDocumentHtml(model: DocumentModel): string {
   </div>
 
   ${model.subject ? `<p class="subject"><b>Subject:</b> ${esc(model.subject)}</p>` : ''}
+  ${model.specSummary ? `<p class="subject"><b>Specification:</b> ${esc(model.specSummary)}</p>` : ''}
 
   ${itemsTable(model)}
 

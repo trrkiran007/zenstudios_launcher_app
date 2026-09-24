@@ -12,8 +12,9 @@ import { api, useApi } from '../lib/api';
 import { useActiveBusinessTypes, useApp } from '../lib/app-context';
 import { dateInput, money, pct } from '../lib/format';
 import { agoLabel, clearDraft, draftKey, readDraft, saveDraft } from '../lib/draft-store';
+import { hardwareLineFor, resolveRate } from '../lib/spec-pricing';
 import { computeTotals, lineAmount } from '../lib/totals';
-import type { Client, Quotation, QuotationItem, QuotationSection } from '../lib/types';
+import type { Client, Quotation, QuotationItem, QuotationSection, SpecTiers } from '../lib/types';
 
 const blankItem = (): QuotationItem => ({
   description: '', specNote: '', hsnSac: '', unit: 'Nos',
@@ -43,6 +44,11 @@ type Draft = {
   validUntil: string;
   taxMode: 'FULL_GST' | 'FLAT';
   showTaxBreakup: boolean;
+  priceDisplay: 'DETAILED' | 'AMOUNT_ONLY' | 'SECTION_ONLY';
+  thicknessMm: number;
+  woodTierId: string;
+  laminateTierId: string;
+  hardwareTierId: string;
   flatGstRate: number;
   placeOfSupplyState: string;
   placeOfSupplyCode: string;
@@ -61,6 +67,8 @@ export function QuotationEditor() {
   const { run, busy } = useAction();
 
   const { data: existing, loading } = useApi<Quotation>(id ? `/quotations/${id}` : null, [id]);
+  // Only interiors is tiered and there are fifteen rows, so fetch the lot.
+  const { data: tiers } = useApi<SpecTiers>('/spec-tiers');
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [picking, setPicking] = useState<number | null>(null);
@@ -86,6 +94,11 @@ export function QuotationEditor() {
     validUntil: dateInput(q.validUntil),
     taxMode: q.taxMode,
     showTaxBreakup: q.showTaxBreakup ?? true,
+    priceDisplay: q.priceDisplay ?? 'DETAILED',
+    thicknessMm: q.thicknessMm ?? 16,
+    woodTierId: q.woodTierId ?? '',
+    laminateTierId: q.laminateTierId ?? '',
+    hardwareTierId: q.hardwareTierId ?? '',
     flatGstRate: q.flatGstRate,
     placeOfSupplyState: q.placeOfSupplyState ?? '',
     placeOfSupplyCode: q.placeOfSupplyCode ?? '',
@@ -123,6 +136,11 @@ export function QuotationEditor() {
         validUntil: dateInput(existing.validUntil),
         taxMode: existing.taxMode,
         showTaxBreakup: existing.showTaxBreakup ?? true,
+        priceDisplay: existing.priceDisplay ?? 'DETAILED',
+        thicknessMm: existing.thicknessMm ?? 16,
+        woodTierId: existing.woodTierId ?? '',
+        laminateTierId: existing.laminateTierId ?? '',
+        hardwareTierId: existing.hardwareTierId ?? '',
         flatGstRate: existing.flatGstRate,
         placeOfSupplyState: existing.placeOfSupplyState ?? '',
         placeOfSupplyCode: existing.placeOfSupplyCode ?? '',
@@ -162,6 +180,11 @@ export function QuotationEditor() {
       validUntil: dateInput(new Date(today.getTime() + (org?.defaultValidityDays ?? 15) * 86400000)),
       taxMode: 'FULL_GST',
       showTaxBreakup: true,
+      priceDisplay: 'DETAILED',
+      thicknessMm: 16,
+      woodTierId: '',
+      laminateTierId: '',
+      hardwareTierId: '',
       flatGstRate: 18,
       placeOfSupplyState: '',
       placeOfSupplyCode: '',
@@ -248,6 +271,17 @@ export function QuotationEditor() {
       [next[index], next[target]] = [next[target], next[index]];
       return { ...d, sections: next };
     });
+
+  const woodTier = tiers?.wood.find((t) => t.id === draft.woodTierId);
+  const laminateTier = tiers?.laminate.find((t) => t.id === draft.laminateTierId);
+  const hardwareTier = tiers?.hardware.find((t) => t.id === draft.hardwareTierId);
+  const specSummary = [
+    woodTier && `${woodTier.name} ${draft.thicknessMm}mm`,
+    laminateTier?.name,
+    hardwareTier && `${hardwareTier.name} hardware`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   /**
    * Exactly what is still needed before this can be saved. Shown next to the
@@ -440,6 +474,81 @@ export function QuotationEditor() {
                 <Select value={draft.taxMode} onChange={(e) => set('taxMode', e.target.value as Draft['taxMode'])}>
                   <option value="FULL_GST">Full GST — per line</option>
                   <option value="FLAT">Flat rate — whole quote</option>
+                </Select>
+              </Field>
+
+              {!!tiers?.wood.length && (
+                <>
+                  <div className="sm:col-span-2 mt-1 border-t border-slate-100 pt-4">
+                    <p className="text-[13px] font-medium text-slate-800">Specification</p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Priced across the whole quotation. Line rates stay editable afterwards.
+                    </p>
+                  </div>
+
+                  <Field label="Board grade" hint={woodTier?.brands ?? undefined}>
+                    <Select value={draft.woodTierId} onChange={(e) => set('woodTierId', e.target.value)}>
+                      <option value="">Rate card default</option>
+                      {tiers.wood.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                          {t.rateDelta ? `  (${t.rateDelta > 0 ? '+' : ''}${money(t.rateDelta)}/sq.ft)` : ''}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+
+                  <Field label="Board thickness" hint="Laminated both faces, so 16mm finishes at 18–19mm">
+                    <Select
+                      value={String(draft.thicknessMm)}
+                      onChange={(e) => set('thicknessMm', Number(e.target.value))}
+                    >
+                      <option value="16">16 mm</option>
+                      <option value="19">19 mm</option>
+                    </Select>
+                  </Field>
+
+                  <Field label="Laminate grade" hint={laminateTier?.brands ?? 'Applies to laminate-finish items only'}>
+                    <Select value={draft.laminateTierId} onChange={(e) => set('laminateTierId', e.target.value)}>
+                      <option value="">Rate card default</option>
+                      {tiers.laminate.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                          {t.rateDelta ? `  (${t.rateDelta > 0 ? '+' : ''}${money(t.rateDelta)}/sq.ft)` : ''}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+
+                  <Field label="Hardware" hint={hardwareTier?.brands ?? 'Printed as one line per cabinet'}>
+                    <Select value={draft.hardwareTierId} onChange={(e) => set('hardwareTierId', e.target.value)}>
+                      <option value="">No hardware line</option>
+                      {tiers.hardware.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                          {t.multiplier !== 1 ? `  (×${t.multiplier})` : ''}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+
+                  {specSummary && (
+                    <p className="sm:col-span-2 -mt-1 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-900">
+                      <strong>Quoted as:</strong> {specSummary}. Changing any of these re-prices the
+                      cabinet lines; anything you have typed over by hand stays as you left it.
+                    </p>
+                  )}
+                </>
+              )}
+
+              <Field label="Pricing detail on the client's copy">
+                <Select
+                  value={draft.priceDisplay}
+                  onChange={(e) => set('priceDisplay', e.target.value as Draft['priceDisplay'])}
+                >
+                  <option value="DETAILED">Full — unit, quantity, rate and amount</option>
+                  <option value="AMOUNT_ONLY">Amount only — no rate or quantity</option>
+                  <option value="SECTION_ONLY">Room totals only — no line amounts</option>
                 </Select>
               </Field>
 
@@ -782,11 +891,29 @@ export function QuotationEditor() {
         open={picking !== null}
         onClose={() => setPicking(null)}
         businessTypeId={draft.businessTypeId}
-        onPick={(items) => {
+        onPick={(picks) => {
           if (picking === null) return;
           const section = draft.sections[picking];
           const existingItems = section.items.filter((i) => i.description.trim());
-          mutateSection(picking, { items: [...existingItems, ...items] });
+
+          const spec = {
+            thicknessMm: draft.thicknessMm,
+            wood: woodTier,
+            laminate: laminateTier,
+            hardware: hardwareTier,
+            rates: tiers?.hardwareRates,
+          };
+
+          // A cabinet comes in as two lines: the cabinet at the specified rate,
+          // and its hardware as one lump immediately after it.
+          const added = picks.flatMap(({ item, line }) => {
+            const priced = resolveRate(item, spec);
+            const cabinet = { ...line, rate: priced.rate, costPrice: priced.cost };
+            const hardware = hardwareLineFor(item, line.quantity, spec);
+            return hardware ? [cabinet, hardware] : [cabinet];
+          });
+
+          mutateSection(picking, { items: [...existingItems, ...added] });
         }}
       />
     </>

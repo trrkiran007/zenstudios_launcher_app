@@ -212,4 +212,27 @@ export const RESIDENTIAL_CATALOG: CatalogSeed[] = [
   { name: 'Dust barricading — sheet partition', category: 'Site Protection & Services', unit: 'Sq.ft', defaultRate: 45, costPrice: 28, hsnSac: '9954', specNote: 'Temporary plastic sheet partition on a light frame to isolate work zones in an occupied home' },
   { name: 'Product cleaning & de-labelling', category: 'Site Protection & Services', unit: 'Lump sum', defaultRate: 13500, costPrice: 8000, hsnSac: '9994', specNote: 'On-site cleaning of installed modular and custom units: label and gum-mark removal, pencil marks, dusting and stretch-wrap packing until handover' },
   { name: 'Debris removal & disposal', category: 'Site Protection & Services', unit: 'Lump sum', defaultRate: 8500, costPrice: 5500, hsnSac: '9994', specNote: 'Collection, bagging and off-site disposal of packaging and construction debris through the project' },
+
+  /* ------------------- hardware accessories, chosen per job ---------------
+   * Cost prices are what ZenStudios actually paid Ebco in September 2026, from
+   * a project purchase note. These are deliberately separate lines rather than
+   * being folded into the cabinet rate: a magic corner alone was a quarter of
+   * that project's hardware bill, and most clients do not order one.
+   * ---------------------------------------------------------------------- */
+  { name: 'Tandem box — 4 inch', category: 'Hardware & Accessories', unit: 'Nos', defaultRate: 3950, costPrice: 2585, hsnSac: '8302', specNote: 'Full-extension soft-close tandem drawer box, 500mm, 4 inch height' },
+  { name: 'Tandem box — 6 inch', category: 'Hardware & Accessories', unit: 'Nos', defaultRate: 4200, costPrice: 2750, hsnSac: '8302', specNote: 'Full-extension soft-close tandem drawer box, 500mm, 6 inch height' },
+  { name: 'Tandem box — 8 inch', category: 'Hardware & Accessories', unit: 'Nos', defaultRate: 4750, costPrice: 3110, hsnSac: '8302', specNote: 'Full-extension soft-close tandem drawer box, 500mm, 8 inch height' },
+  { name: 'Quadro runner set — 350mm', category: 'Hardware & Accessories', unit: 'Set', defaultRate: 1765, costPrice: 1155, hsnSac: '8302', specNote: 'Concealed full-extension soft-close runner pair' },
+  { name: 'Quadro runner set — 450mm', category: 'Hardware & Accessories', unit: 'Set', defaultRate: 2055, costPrice: 1346, hsnSac: '8302', specNote: 'Concealed full-extension soft-close runner pair' },
+  { name: 'Quadro runner set — 500mm', category: 'Hardware & Accessories', unit: 'Set', defaultRate: 2225, costPrice: 1457, hsnSac: '8302', specNote: 'Concealed full-extension soft-close runner pair' },
+  { name: 'Magic corner unit', category: 'Hardware & Accessories', unit: 'Nos', defaultRate: 47100, costPrice: 30845, hsnSac: '8302', specNote: 'Pull-out corner mechanism for a blind kitchen corner, soft-close, chrome baskets' },
+  { name: 'Bottle pull-out — 6 inch', category: 'Hardware & Accessories', unit: 'Nos', defaultRate: 9675, costPrice: 6335, hsnSac: '8302', specNote: 'Tall narrow pull-out for bottles and oils, soft-close runners' },
+  { name: 'Hydraulic lift-up gas pump', category: 'Hardware & Accessories', unit: 'Nos', defaultRate: 1240, costPrice: 813, hsnSac: '8302', specNote: 'Gas strut for a lift-up wall-unit shutter' },
+  { name: 'Soft-close drawer channel — 18 inch', category: 'Hardware & Accessories', unit: 'Set', defaultRate: 1045, costPrice: 685, hsnSac: '8302', specNote: 'Telescopic soft-close channel pair, 45kg' },
+  { name: 'Soft-close drawer channel — 20 inch', category: 'Hardware & Accessories', unit: 'Set', defaultRate: 1090, costPrice: 712, hsnSac: '8302', specNote: 'Telescopic soft-close channel pair, 45kg' },
+  { name: 'Gola profile — L section', category: 'Hardware & Accessories', unit: 'R.ft', defaultRate: 1220, costPrice: 800, hsnSac: '7610', specNote: 'Aluminium L-profile handleless gola, anodised or PVD finish' },
+  { name: 'Gola profile — C section', category: 'Hardware & Accessories', unit: 'R.ft', defaultRate: 1300, costPrice: 850, hsnSac: '7610', specNote: 'Aluminium C-profile handleless gola, anodised or PVD finish' },
+  { name: 'Wardrobe oval hanging rod', category: 'Hardware & Accessories', unit: 'Nos', defaultRate: 2365, costPrice: 1550, hsnSac: '7610', specNote: 'Oval anodised hanging rod with end caps' },
+  { name: 'Oval rod bracket', category: 'Hardware & Accessories', unit: 'Nos', defaultRate: 220, costPrice: 145, hsnSac: '8302', specNote: 'Centre or end support bracket for an oval rod' },
+  { name: 'Shelf support buttons — pack', category: 'Hardware & Accessories', unit: 'Set', defaultRate: 1000, costPrice: 655, hsnSac: '8302', specNote: 'Pack of adjustable shelf support pins' },
 ];

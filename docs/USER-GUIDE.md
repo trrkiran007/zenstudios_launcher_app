@@ -142,6 +142,49 @@ The right-hand panel updates as you type:
 A document-level discount (percentage or amount) is spread across the lines in proportion to their
 value, so each line still carries the right tax.
 
+### Specifying the whole quotation at once
+
+Interior quotations carry four settings, chosen once at the top under **Specification**. They price
+every cabinet line in the quotation, so the same wardrobe can be quoted for a budget client or a
+premium one without maintaining separate rate cards.
+
+| Setting | Choices | What it moves |
+|---|---|---|
+| **Board grade** | HDHMR through Architect, 7 tiers | Cabinet rate, by a fixed ₹/sq.ft |
+| **Board thickness** | 16mm or 19mm | Cabinet rate — the uplift is larger on premium boards |
+| **Laminate grade** | Economy / Standard / Premium | Laminate-finish items only |
+| **Hardware** | Standard soft-close through Blum | The hardware line on each cabinet |
+
+The rates come from ZenStudios' own purchase documents, so a tier change moves cost and price
+together and your margin holds steady whichever specification you quote.
+
+Line rates stay editable afterwards. Changing a setting re-prices the cabinet lines; anything typed
+over by hand is left alone.
+
+### Why hardware is its own line
+
+Clients compare interiors on rupees per sq.ft, and an all-in rate that bundles hinges, channels and
+handles reads expensive next to a competitor who lists them separately.
+
+Adding a cabinet from the rate card therefore produces **two lines**: the cabinet at its per-sq.ft
+rate, and **Hardware & accessories** immediately after it as a single figure for that cabinet. There
+are no unit prices on the hardware line — deliberately, so the conversation does not turn into
+negotiating the price of a hinge.
+
+The allowance differs by cabinet type, because a kitchen run carries different fittings from a
+wardrobe. Big-ticket items — magic corners, tandem boxes, bottle pull-outs — are **not** in that
+allowance; add them from **Hardware & Accessories** in the rate card when the client specifies them.
+
+### How much pricing the client sees
+
+**Pricing detail on the client's copy**, beside the GST setting:
+
+| Mode | What prints |
+|---|---|
+| **Full** *(default)* | Unit, quantity, rate and amount |
+| **Amount only** | Description and amount. Unit, quantity **and** rate are all hidden — leaving quantity visible would let anyone divide and recover your rate |
+| **Room totals only** | Scope per room with one total, no line amounts |
+
 ### Showing or hiding GST on a quotation
 
 Some clients want the tax laid out; others only want the price of the work, with GST discussed

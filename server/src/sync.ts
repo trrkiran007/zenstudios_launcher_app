@@ -9,7 +9,7 @@
  * specifications you have corrected are left exactly as they are, so this is
  * safe to re-run after every update.
  */
-import { BUSINESS_TYPES, CATALOGS, type CatalogSeed } from './data/index.js';
+import { BUSINESS_TYPES, CATALOGS, SPEC_TIERS, type CatalogSeed } from './data/index.js';
 import { prisma } from './db.js';
 
 const key = (name: string, unit: string) => `${name.trim().toLowerCase()}|${unit.trim().toLowerCase()}`;
@@ -49,6 +49,40 @@ async function main() {
       });
       typesAdded++;
       console.log(`+ line of business: ${seed.name} (${seed.shortCode}) with ${seed.stages.length} stages`);
+    }
+
+    // Specification tiers — add-only, like everything else here, so rates the
+    // owner has corrected are never overwritten.
+    const tierSeeds = SPEC_TIERS[seed.key] ?? [];
+    if (tierSeeds.length) {
+      const have = new Set(
+        (await prisma.specTier.findMany({
+          where: { businessTypeId: businessType.id },
+          select: { kind: true, key: true },
+        })).map((t) => `${t.kind}|${t.key}`),
+      );
+      const missing = tierSeeds.filter((t) => !have.has(`${t.kind}|${t.key}`));
+      if (missing.length) {
+        await prisma.specTier.createMany({
+          data: missing.map((t) => ({
+            businessTypeId: businessType!.id,
+            kind: t.kind,
+            key: t.key,
+            name: t.name,
+            brands: t.brands ?? null,
+            specNote: t.specNote ?? null,
+            order: t.order,
+            rateDelta: t.rateDelta ?? 0,
+            costDelta: t.costDelta ?? 0,
+            rateDelta19: t.rateDelta19 ?? 0,
+            costDelta19: t.costDelta19 ?? 0,
+            multiplier: t.multiplier ?? 1,
+            isDefault: !!t.isDefault,
+          })),
+        });
+        const by = (k: string) => missing.filter((t) => t.kind === k).length;
+        console.log(`\n  ${seed.name}: ${by('WOOD')} material, ${by('LAMINATE')} laminate, ${by('HARDWARE')} hardware tier(s) added`);
+      }
     }
 
     const catalog: CatalogSeed[] = CATALOGS[seed.key] ?? [];

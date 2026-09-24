@@ -10,6 +10,7 @@ import { projectsRouter, tasksRouter } from './projects.js';
 import { quotationsRouter } from './quotations.js';
 import { reportsRouter } from './reports.js';
 import { settingsRouter } from './settings.js';
+import { specTiersRouter } from './specTiers.js';
 import { transferRouter } from './transfer.js';
 
 /** Mount path → router. Adding a route here is the only wiring step. */
@@ -27,5 +28,6 @@ export const activityRouters: Record<string, Router> = {
   '/invoices': invoicesRouter,
   '/reports': reportsRouter,
   '/benchmark': benchmarkRouter,
+  '/spec-tiers': specTiersRouter,
   '/transfer': transferRouter,
 };

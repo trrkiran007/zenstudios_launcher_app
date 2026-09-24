@@ -5,6 +5,7 @@ import { badRequest, h, notFound, parseDate } from '../lib/http.js';
 import { round2 } from '../lib/money.js';
 import { nextNumber, projectPrefix, quotePrefix } from '../lib/numbering.js';
 import { htmlToPdf } from '../lib/pdf.js';
+import { describeSpec } from '../lib/spec-pricing.js';
 import { computeTotals, lineAmount } from '../lib/totals.js';
 import { renderDocumentHtml, type DocumentModel } from '../templates/document.js';
 import { getOrg } from './settings.js';
@@ -39,6 +40,11 @@ const quotationSchema = z.object({
   validUntil: z.string().nullish(),
   taxMode: z.enum(['FULL_GST', 'FLAT']).default('FULL_GST'),
   showTaxBreakup: z.boolean().default(true),
+  priceDisplay: z.enum(['DETAILED', 'AMOUNT_ONLY', 'SECTION_ONLY']).default('DETAILED'),
+  thicknessMm: z.coerce.number().int().refine((n) => n === 16 || n === 19, 'Thickness must be 16 or 19mm').default(16),
+  woodTierId: z.string().nullish(),
+  laminateTierId: z.string().nullish(),
+  hardwareTierId: z.string().nullish(),
   flatGstRate: z.coerce.number().min(0).max(50).default(18),
   placeOfSupplyState: z.string().nullish(),
   placeOfSupplyCode: z.string().nullish(),
@@ -52,6 +58,9 @@ const quotationSchema = z.object({
 const fullInclude = {
   businessType: true,
   client: true,
+  woodTier: true,
+  laminateTier: true,
+  hardwareTier: true,
   sections: { orderBy: { order: 'asc' as const }, include: { items: { orderBy: { order: 'asc' as const } } } },
   project: { include: { stage: true } },
   revisions: { select: { id: true, number: true, version: true, status: true } },
@@ -222,6 +231,11 @@ quotationsRouter.post(
           new Date(quoteDate.getTime() + (org.defaultValidityDays || 15) * 86400000),
         taxMode: input.taxMode,
         showTaxBreakup: input.showTaxBreakup,
+        priceDisplay: input.priceDisplay,
+        thicknessMm: input.thicknessMm,
+        woodTierId: input.woodTierId ?? null,
+        laminateTierId: input.laminateTierId ?? null,
+        hardwareTierId: input.hardwareTierId ?? null,
         flatGstRate: input.flatGstRate,
         placeOfSupplyState: input.placeOfSupplyState ?? null,
         placeOfSupplyCode: input.placeOfSupplyCode ?? null,
@@ -274,6 +288,11 @@ quotationsRouter.put(
           validUntil: parseDate(input.validUntil),
           taxMode: input.taxMode,
           showTaxBreakup: input.showTaxBreakup,
+          priceDisplay: input.priceDisplay,
+          thicknessMm: input.thicknessMm,
+          woodTierId: input.woodTierId ?? null,
+          laminateTierId: input.laminateTierId ?? null,
+          hardwareTierId: input.hardwareTierId ?? null,
           flatGstRate: input.flatGstRate,
           placeOfSupplyState: input.placeOfSupplyState ?? null,
           placeOfSupplyCode: input.placeOfSupplyCode ?? null,
@@ -377,6 +396,11 @@ async function cloneQuotation(id: string, mode: 'revision' | 'duplicate') {
       validUntil: src.validUntil,
       taxMode: src.taxMode,
       showTaxBreakup: src.showTaxBreakup,
+      priceDisplay: src.priceDisplay,
+      thicknessMm: src.thicknessMm,
+      woodTierId: src.woodTierId,
+      laminateTierId: src.laminateTierId,
+      hardwareTierId: src.hardwareTierId,
       flatGstRate: src.flatGstRate,
       placeOfSupplyState: src.placeOfSupplyState,
       placeOfSupplyCode: src.placeOfSupplyCode,
@@ -500,6 +524,9 @@ export async function quotationDocument(id: string): Promise<DocumentModel> {
     include: {
       client: true,
       businessType: true,
+      woodTier: true,
+      laminateTier: true,
+      hardwareTier: true,
       sections: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } },
     },
   });
@@ -533,6 +560,13 @@ export async function quotationDocument(id: string): Promise<DocumentModel> {
     sections: quote.sections.map((s) => ({ name: s.name, notes: s.notes, items: s.items })),
     totals,
     showTax: quote.showTaxBreakup,
+    priceDisplay: (quote.priceDisplay as 'DETAILED' | 'AMOUNT_ONLY' | 'SECTION_ONLY') ?? 'DETAILED',
+    specSummary: describeSpec({
+      thicknessMm: quote.thicknessMm,
+      wood: quote.woodTier,
+      laminate: quote.laminateTier,
+      hardware: quote.hardwareTier,
+    }),
     // HSN/SAC is a tax code — it has no place on a document that is not showing tax.
     showHsn: quote.taxMode === 'FULL_GST' && quote.showTaxBreakup,
     showSectionTotals: quote.businessType.layout === 'SECTIONED',
