@@ -14,6 +14,9 @@ export const quotationsRouter = Router();
 
 const itemSchema = z.object({
   catalogItemId: z.string().nullish(),
+  /// LINE | HARDWARE — a HARDWARE row is generated from the cabinet above it
+  /// and is re-priced when the specification changes.
+  kind: z.enum(['LINE', 'HARDWARE']).default('LINE'),
   description: z.string().min(1),
   specNote: z.string().nullish(),
   hsnSac: z.string().nullish(),

@@ -104,6 +104,8 @@ export type CatalogItem = {
 export type QuotationItem = {
   id?: string;
   catalogItemId?: string | null;
+  /** HARDWARE rows are generated from a cabinet and re-priced with the spec. */
+  kind?: 'LINE' | 'HARDWARE';
   description: string;
   specNote: string | null;
   hsnSac: string | null;
