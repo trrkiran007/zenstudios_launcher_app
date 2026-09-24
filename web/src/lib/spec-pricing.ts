@@ -43,7 +43,10 @@ export function hardwareLineFor(item: CatalogItem, quantity: number, spec: Spec)
   if (rate <= 0) return null;
 
   return {
-    catalogItemId: null,
+    // Tagged and linked to its cabinet so the pair can be found and re-priced
+    // when the specification changes.
+    kind: 'HARDWARE',
+    catalogItemId: item.id,
     description: `Hardware & accessories — ${spec.hardware.name}`,
     specNote: spec.hardware.specNote ?? 'Soft-close hinges, drawer channels, handles and dress accessories.',
     hsnSac: '8302',

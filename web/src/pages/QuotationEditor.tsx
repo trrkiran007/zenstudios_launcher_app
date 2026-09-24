@@ -14,7 +14,7 @@ import { dateInput, money, pct } from '../lib/format';
 import { agoLabel, clearDraft, draftKey, readDraft, saveDraft } from '../lib/draft-store';
 import { hardwareLineFor, resolveRate } from '../lib/spec-pricing';
 import { computeTotals, lineAmount } from '../lib/totals';
-import type { Client, Quotation, QuotationItem, QuotationSection, SpecTiers } from '../lib/types';
+import type { CatalogItem, Client, Quotation, QuotationItem, QuotationSection, SpecTiers } from '../lib/types';
 
 const blankItem = (): QuotationItem => ({
   description: '', specNote: '', hsnSac: '', unit: 'Nos',
@@ -69,6 +69,9 @@ export function QuotationEditor() {
   const { data: existing, loading } = useApi<Quotation>(id ? `/quotations/${id}` : null, [id]);
   // Only interiors is tiered and there are fifteen rows, so fetch the lot.
   const { data: tiers } = useApi<SpecTiers>('/spec-tiers');
+  // Needed to re-price existing lines when the specification changes: a line
+  // stores its rate, not the rule that produced it.
+  const { data: catalog } = useApi<CatalogItem[]>('/catalog');
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [picking, setPicking] = useState<number | null>(null);
@@ -244,6 +247,81 @@ export function QuotationEditor() {
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => (d ? { ...d, [key]: value } : d));
+
+  const specOf = (d: Draft) => ({
+    thicknessMm: d.thicknessMm,
+    wood: tiers?.wood.find((t) => t.id === d.woodTierId),
+    laminate: tiers?.laminate.find((t) => t.id === d.laminateTierId),
+    hardware: tiers?.hardware.find((t) => t.id === d.hardwareTierId),
+    rates: tiers?.hardwareRates,
+  });
+
+  /**
+   * Change a specification setting and re-price the lines it governs.
+   *
+   * A line stores its rate, not the rule that produced it, so "was this edited
+   * by hand?" is answered by asking what the *previous* specification would
+   * have produced. If the line still matches that, it was untouched and is
+   * safe to re-price; if it does not, someone typed over it and it is left
+   * exactly as they left it.
+   */
+  const setSpec = (patch: Partial<Draft>) =>
+    setDraft((d) => {
+      if (!d) return d;
+      const next = { ...d, ...patch };
+      if (!tiers || !catalog) return next;
+
+      const before = specOf(d);
+      const after = specOf(next);
+      const itemOf = (id?: string | null) => (id ? catalog.find((c) => c.id === id) : undefined);
+      const same = (a: number, b: number) => Math.abs(a - b) < 0.01;
+
+      const sections = next.sections.map((section) => {
+        const items: QuotationItem[] = [];
+        const source = section.items;
+
+        for (let i = 0; i < source.length; i++) {
+          const line = source[i];
+          // Hardware rows are consumed alongside the cabinet they follow, never
+          // on their own — otherwise a stranded row would be copied through.
+          if (line.kind === 'HARDWARE') continue;
+
+          const item = itemOf(line.catalogItemId);
+
+          let cabinet = line;
+          if (item?.carcassBuilt) {
+            const was = resolveRate(item, before);
+            if (same(line.rate, was.rate)) {
+              const now = resolveRate(item, after);
+              cabinet = { ...line, rate: now.rate, costPrice: now.cost };
+            }
+          }
+          items.push(cabinet);
+
+          if (!item?.hardwareClass) continue;
+
+          // Paired by position, not by catalogue id: two identical wardrobes in
+          // one room would otherwise both match the first hardware row.
+          const nextLine = source[i + 1];
+          const existing =
+            nextLine?.kind === 'HARDWARE' && nextLine.catalogItemId === line.catalogItemId
+              ? nextLine
+              : undefined;
+
+          const wasHw = hardwareLineFor(item, cabinet.quantity, before);
+          if (existing && wasHw && !same(existing.rate, wasHw.rate)) {
+            items.push(existing); // hand-edited, leave it
+            continue;
+          }
+          const nowHw = hardwareLineFor(item, cabinet.quantity, after);
+          if (nowHw) items.push({ ...nowHw, id: existing?.id });
+        }
+
+        return { ...section, items };
+      });
+
+      return { ...next, sections };
+    });
 
   const mutateSection = (index: number, patch: Partial<QuotationSection>) =>
     setDraft((d) =>
@@ -487,7 +565,7 @@ export function QuotationEditor() {
                   </div>
 
                   <Field label="Board grade" hint={woodTier?.brands ?? undefined}>
-                    <Select value={draft.woodTierId} onChange={(e) => set('woodTierId', e.target.value)}>
+                    <Select value={draft.woodTierId} onChange={(e) => setSpec({ woodTierId: e.target.value })}>
                       <option value="">Rate card default</option>
                       {tiers.wood.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -501,7 +579,7 @@ export function QuotationEditor() {
                   <Field label="Board thickness" hint="Laminated both faces, so 16mm finishes at 18–19mm">
                     <Select
                       value={String(draft.thicknessMm)}
-                      onChange={(e) => set('thicknessMm', Number(e.target.value))}
+                      onChange={(e) => setSpec({ thicknessMm: Number(e.target.value) })}
                     >
                       <option value="16">16 mm</option>
                       <option value="19">19 mm</option>
@@ -509,7 +587,7 @@ export function QuotationEditor() {
                   </Field>
 
                   <Field label="Laminate grade" hint={laminateTier?.brands ?? 'Applies to laminate-finish items only'}>
-                    <Select value={draft.laminateTierId} onChange={(e) => set('laminateTierId', e.target.value)}>
+                    <Select value={draft.laminateTierId} onChange={(e) => setSpec({ laminateTierId: e.target.value })}>
                       <option value="">Rate card default</option>
                       {tiers.laminate.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -521,7 +599,7 @@ export function QuotationEditor() {
                   </Field>
 
                   <Field label="Hardware" hint={hardwareTier?.brands ?? 'Printed as one line per cabinet'}>
-                    <Select value={draft.hardwareTierId} onChange={(e) => set('hardwareTierId', e.target.value)}>
+                    <Select value={draft.hardwareTierId} onChange={(e) => setSpec({ hardwareTierId: e.target.value })}>
                       <option value="">No hardware line</option>
                       {tiers.hardware.map((t) => (
                         <option key={t.id} value={t.id}>

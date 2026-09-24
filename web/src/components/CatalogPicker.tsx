@@ -7,6 +7,7 @@ import { Badge, Button, EmptyState, Input, Loading, Modal, Select } from './ui';
 
 export const catalogToLine = (item: CatalogItem): QuotationItem => ({
   catalogItemId: item.id,
+  kind: 'LINE',
   description: item.name,
   specNote: item.specNote,
   hsnSac: item.hsnSac,
