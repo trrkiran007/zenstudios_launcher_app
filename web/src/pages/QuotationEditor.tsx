@@ -12,7 +12,7 @@ import { api, useApi } from '../lib/api';
 import { useActiveBusinessTypes, useApp } from '../lib/app-context';
 import { dateInput, money, pct } from '../lib/format';
 import { agoLabel, clearDraft, draftKey, readDraft, saveDraft } from '../lib/draft-store';
-import { hardwareLineFor, resolveRate } from '../lib/spec-pricing';
+import { HARDWARE_PREFIX, hardwareLineFor, isHardwareLine, resolveRate } from '../lib/spec-pricing';
 import { computeTotals, lineAmount } from '../lib/totals';
 import type { CatalogItem, Client, Quotation, QuotationItem, QuotationSection, SpecTiers } from '../lib/types';
 
@@ -273,52 +273,42 @@ export function QuotationEditor() {
 
       const before = specOf(d);
       const after = specOf(next);
+      const hardwareChanged = d.hardwareTierId !== next.hardwareTierId;
       const itemOf = (id?: string | null) => (id ? catalog.find((c) => c.id === id) : undefined);
       const same = (a: number, b: number) => Math.abs(a - b) < 0.01;
 
-      const sections = next.sections.map((section) => {
-        const items: QuotationItem[] = [];
-        const source = section.items;
-
-        for (let i = 0; i < source.length; i++) {
-          const line = source[i];
-          // Hardware rows are consumed alongside the cabinet they follow, never
-          // on their own — otherwise a stranded row would be copied through.
-          if (line.kind === 'HARDWARE') continue;
+      /*
+       * Rows are edited in place — never added, never removed. A quotation can
+       * hold hand-written lines and hardware rows the designer typed, and
+       * rebuilding the list would quietly drop whatever could not be matched
+       * back to a catalogue item. Hardware rows are added when an item is
+       * picked from the rate card, and only there.
+       */
+      const sections = next.sections.map((section) => ({
+        ...section,
+        items: section.items.map((line) => {
+          if (isHardwareLine(line)) {
+            // Hardware answers to the hardware dial alone: board grade,
+            // thickness and laminate say nothing about hinges.
+            if (!hardwareChanged || !after.hardware) return line;
+            const ratio = (after.hardware.multiplier || 1) / (before.hardware?.multiplier || 1);
+            return {
+              ...line,
+              description: `${HARDWARE_PREFIX} — ${after.hardware.name}`,
+              specNote: after.hardware.specNote ?? line.specNote,
+              rate: Math.round(line.rate * ratio * 100) / 100,
+              costPrice: Math.round(line.costPrice * ratio * 100) / 100,
+            };
+          }
 
           const item = itemOf(line.catalogItemId);
-
-          let cabinet = line;
-          if (item?.carcassBuilt) {
-            const was = resolveRate(item, before);
-            if (same(line.rate, was.rate)) {
-              const now = resolveRate(item, after);
-              cabinet = { ...line, rate: now.rate, costPrice: now.cost };
-            }
-          }
-          items.push(cabinet);
-
-          if (!item?.hardwareClass) continue;
-
-          // Paired by position, not by catalogue id: two identical wardrobes in
-          // one room would otherwise both match the first hardware row.
-          const nextLine = source[i + 1];
-          const existing =
-            nextLine?.kind === 'HARDWARE' && nextLine.catalogItemId === line.catalogItemId
-              ? nextLine
-              : undefined;
-
-          const wasHw = hardwareLineFor(item, cabinet.quantity, before);
-          if (existing && wasHw && !same(existing.rate, wasHw.rate)) {
-            items.push(existing); // hand-edited, leave it
-            continue;
-          }
-          const nowHw = hardwareLineFor(item, cabinet.quantity, after);
-          if (nowHw) items.push({ ...nowHw, id: existing?.id });
-        }
-
-        return { ...section, items };
-      });
+          if (!item?.carcassBuilt) return line;
+          const was = resolveRate(item, before);
+          if (!same(line.rate, was.rate)) return line; // typed over by hand
+          const now = resolveRate(item, after);
+          return { ...line, rate: now.rate, costPrice: now.cost };
+        }),
+      }));
 
       return { ...next, sections };
     });

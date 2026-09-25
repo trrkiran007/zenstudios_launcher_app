@@ -6,6 +6,11 @@
  * Prelam board lists and the Greenply, Century and Austin plywood lists of
  * 2026, and an Ebco purchase for a live project. Every figure below is ex-GST.
  *
+ * Every tier from BWP 710 upward is the same IS:710 boiling-water-proof
+ * standard — what separates them is core quality and warranty, which is what
+ * the manufacturers themselves sell on, so the tiers are named for it. The one
+ * real standards boundary is between MR (IS:303, not waterproof) and 710.
+ *
  * Rates are on a 16mm basis — ZenStudios builds in 16mm board and laminates
  * both faces, finishing at 18-19mm. The earlier 19mm assumption overstated the
  * carcass cost by about 14%.
@@ -40,44 +45,44 @@ export const WOOD_TIERS: SpecTierSeed[] = [
     kind: 'WOOD', key: 'HDHMR', name: 'HDHMR', order: 1,
     brands: 'Action Tesa HDHMR',
     // Priced from an actual purchase at Rs 78/sq.ft incl GST for 16mm.
-    specNote: 'High-density high-moisture-resistant board. Dense and screw-holding, best where the carcass stays dry.',
-    rateDelta: -97, costDelta: -64, rateDelta19: -7, costDelta19: -5,
+    specNote: 'High-density high-moisture-resistant board. Dense and screw-holding, but not a boiling-water-proof plywood — keep it out of kitchens and wet areas.',
+    rateDelta: -88, costDelta: -58, rateDelta19: -11, costDelta19: -7,
   },
   {
-    kind: 'WOOD', key: 'MR', name: 'Moisture Resistant (MR)', order: 2,
+    kind: 'WOOD', key: 'MR', name: 'Moisture Resistant (MR) — 5 year', order: 2,
     brands: 'Century Sainik MR · Greenply Ecotech MR',
-    specNote: 'Commercial MR-grade plywood. Suitable for bedrooms and dry areas; not for kitchen or bathroom carcasses.',
+    specNote: 'IS:303 MR-grade plywood, urea-formaldehyde bonded. Suitable for bedrooms and dry areas only; not waterproof.',
     rateDelta: -57, costDelta: -37, rateDelta19: -6, costDelta19: -4,
   },
   {
-    kind: 'WOOD', key: 'BWP_710', name: 'BWP 710', order: 3,
+    kind: 'WOOD', key: 'BWP_710', name: 'BWP 710 — 10 year', order: 3,
     brands: 'Century Sainik 710 · Greenply Ecotec 710 · Austin Lincoln 710',
-    specNote: 'IS:710 boiling-water-proof plywood. The standard specification for kitchens, wardrobes and wet areas.',
+    specNote: 'IS:710 boiling-water-proof plywood, phenol-formaldehyde bonded. The standard specification for kitchens, wardrobes and wet areas.',
     rateDelta: 0, costDelta: 0, rateDelta19: 60, costDelta19: 39, isDefault: true,
   },
   {
-    kind: 'WOOD', key: 'BWP_PLUS', name: 'BWP 710 — upgraded', order: 4,
-    brands: 'Century Bond Shield · Austin Gold · Greenply Optima G',
-    specNote: 'Heavier BWP grade with a longer warranty and better core consistency.',
+    kind: 'WOOD', key: 'BWP_PLUS', name: 'BWP 710 — 21 year', order: 4,
+    brands: 'Century Bond Shield · Greenply Optima G · Austin Gold',
+    specNote: 'IS:710 with a heavier hardwood core and a longer warranty. Better screw withdrawal and fewer core gaps than entry 710.',
     rateDelta: 68, costDelta: 45, rateDelta19: 132, costDelta19: 86,
   },
   {
-    kind: 'WOOD', key: 'MARINE', name: 'Marine grade', order: 5,
-    brands: 'Century Bond 710 · Austin Gold · Greenply Green Marine',
-    specNote: 'Marine-grade plywood, fully waterproof glue line, for sustained damp exposure.',
-    rateDelta: 85, costDelta: 56, rateDelta19: 164, costDelta19: 107,
+    kind: 'WOOD', key: 'MARINE', name: 'Marine 710 — 25 year', order: 5,
+    brands: 'Century Bond 710 · Greenply Green Marine',
+    specNote: 'Marine-grade IS:710 for sustained damp exposure — utility areas, balcony units, anywhere with standing humidity.',
+    rateDelta: 93, costDelta: 61, rateDelta19: 179, costDelta19: 117,
   },
   {
-    kind: 'WOOD', key: 'PREMIUM', name: 'Premium', order: 6,
-    brands: 'Century Club Prime · Austin Club Plus · Greenply Platinum, Gold 2.0',
-    specNote: 'Premium hardwood-core plywood with lifetime warranty, calibrated thickness and minimal core gaps.',
-    rateDelta: 162, costDelta: 106, rateDelta19: 262, costDelta19: 172,
+    kind: 'WOOD', key: 'PREMIUM', name: 'BWP 710 — 30 year', order: 6,
+    brands: 'Century Architect · Greenply Gold 2.0, Platinum',
+    specNote: 'Calibrated IS:710 with a consistent hardwood core, even thickness and a 30-year warranty.',
+    rateDelta: 127, costDelta: 83, rateDelta19: 217, costDelta19: 142,
   },
   {
-    kind: 'WOOD', key: 'ARCHITECT', name: 'Architect', order: 7,
-    brands: 'Century Architect · Austin Platinum Plus · Greenply Club',
-    specNote: 'Top of the range. Fully calibrated, gap-free hardwood core with the highest screw-withdrawal strength.',
-    rateDelta: 331, costDelta: 217, rateDelta19: 433, costDelta19: 284,
+    kind: 'WOOD', key: 'ARCHITECT', name: 'BWP 710 — lifetime', order: 7,
+    brands: 'Century Club Prime · Greenply Club · Austin Club Plus, Platinum Plus',
+    specNote: 'Top of the range: fully calibrated, gap-free hardwood core, highest screw-withdrawal strength, lifetime warranty.',
+    rateDelta: 293, costDelta: 192, rateDelta19: 392, costDelta19: 257,
   },
 ];
 
