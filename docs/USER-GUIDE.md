@@ -204,6 +204,15 @@ copy, not the arithmetic.
 **Tax invoices always show GST**, whatever the quotation was set to. A tax invoice has to show the
 tax charged, so the option is not offered there.
 
+### Changing an accepted quotation
+
+An accepted quotation is a won contract, so it stays exactly as the client agreed it. Open one in the
+editor and you are told so, and the save button reads **Save as revision**.
+
+Make your changes as normal. Saving creates the next revision — `ZS/INT/26-27/013-R2` and so on —
+carries everything you just typed onto it, and opens it. The accepted original is kept alongside,
+untouched, so you always have the version the client signed off.
+
 ### If the save button is greyed out
 
 **Create quotation** stays disabled until the document is valid, and the reason is printed next to

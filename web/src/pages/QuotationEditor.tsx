@@ -1,5 +1,5 @@
 import {
-  AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Layers, PackagePlus, Plus, RotateCcw, Save, Trash2,
+  AlertCircle, ArrowLeft, ChevronDown, ChevronUp, GitBranch, Layers, PackagePlus, Plus, RotateCcw, Save, Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -378,13 +378,15 @@ export function QuotationEditor() {
     }
   };
 
-  const save = () =>
-    run(async () => {
+  /** Accepted quotations are a won contract — changes go on a revision. */
+  const locked = existing?.status === 'ACCEPTED';
+
+  const buildPayload = (d: Draft) => {
       const payload = {
-        ...draft,
-        discountValue: Number(draft.discountValue) || 0,
-        flatGstRate: Number(draft.flatGstRate) || 0,
-        sections: draft.sections
+        ...d,
+        discountValue: Number(d.discountValue) || 0,
+        flatGstRate: Number(d.flatGstRate) || 0,
+        sections: d.sections
           .map((s) => ({
             name: s.name.trim() || sectionLabel,
             notes: s.notes || null,
@@ -406,14 +408,43 @@ export function QuotationEditor() {
           .filter((s) => s.items.length),
       };
 
+      return payload;
+  };
+
+  const finish = (record: Quotation) => {
+    // The server has it now — drop the local copy so it cannot be offered back.
+    saved.current = true;
+    clearDraft(storeKey);
+    navigate(`/quotations/${record.id}`);
+  };
+
+  const save = () =>
+    run(async () => {
+      const payload = buildPayload(draft);
       const record = id
         ? await api.put<Quotation>(`/quotations/${id}`, payload)
         : await api.post<Quotation>('/quotations', payload);
-      // The server has it now — drop the local copy so it cannot be offered back.
-      saved.current = true;
-      clearDraft(storeKey);
-      navigate(`/quotations/${record.id}`);
+      finish(record);
     }, id ? 'Quotation updated' : 'Quotation created');
+
+  /**
+   * Turn edits made on a locked quotation into a revision.
+   *
+   * The revision is created from the accepted original, then whatever is on
+   * screen is written onto it — so work typed against a locked quotation is
+   * carried across rather than lost, which is what happens today: saving
+   * returns "accepted and locked" and the edits have nowhere to go.
+   */
+  const reviseWithChanges = () =>
+    run(async () => {
+      if (!id) return;
+      const revision = await api.post<Quotation>(`/quotations/${id}/revise`);
+      const record = await api.put<Quotation>(
+        `/quotations/${revision.id}`,
+        buildPayload(draft),
+      );
+      finish(record);
+    }, 'Revision created with your changes');
 
   return (
     <>
@@ -441,11 +472,28 @@ export function QuotationEditor() {
               </span>
             </p>
           )}
-          <Button variant="primary" icon={<Save className="size-4" />} loading={busy} disabled={!canSave} onClick={save}>
-            {id ? 'Save changes' : 'Create quotation'}
+          <Button
+            variant="primary"
+            icon={locked ? <GitBranch className="size-4" /> : <Save className="size-4" />}
+            loading={busy}
+            disabled={!canSave}
+            onClick={locked ? reviseWithChanges : save}
+          >
+            {locked ? 'Save as revision' : id ? 'Save changes' : 'Create quotation'}
           </Button>
         </div>
       </div>
+
+      {locked && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-900">
+            <strong>{existing?.number} is accepted</strong> — a won contract, so it stays as the
+            client agreed it. Anything you change here is saved as{' '}
+            <strong>revision v{(existing?.version ?? 1) + 1}</strong>, and the original is kept
+            intact alongside it.
+          </p>
+        </div>
+      )}
 
       {recovered !== null && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3">

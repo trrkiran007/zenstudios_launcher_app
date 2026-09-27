@@ -45,9 +45,11 @@ const quotationSchema = z.object({
   showTaxBreakup: z.boolean().default(true),
   priceDisplay: z.enum(['DETAILED', 'AMOUNT_ONLY', 'SECTION_ONLY']).default('DETAILED'),
   thicknessMm: z.coerce.number().int().refine((n) => n === 16 || n === 19, 'Thickness must be 16 or 19mm').default(16),
-  woodTierId: z.string().nullish(),
-  laminateTierId: z.string().nullish(),
-  hardwareTierId: z.string().nullish(),
+  // A <select> with nothing chosen posts "", which is neither null nor a valid
+  // id — left as-is it violates the foreign key and the whole save fails.
+  woodTierId: z.string().nullish().transform((v) => v || null),
+  laminateTierId: z.string().nullish().transform((v) => v || null),
+  hardwareTierId: z.string().nullish().transform((v) => v || null),
   flatGstRate: z.coerce.number().min(0).max(50).default(18),
   placeOfSupplyState: z.string().nullish(),
   placeOfSupplyCode: z.string().nullish(),
@@ -381,15 +383,37 @@ async function cloneQuotation(id: string, mode: 'revision' | 'duplicate') {
   if (!src) throw notFound('Quotation');
 
   const rootId = src.parentId ?? src.id;
-  const number =
-    mode === 'revision'
-      ? `${(await prisma.quotation.findUnique({ where: { id: rootId } }))!.number}-R${src.version}`
-      : await nextNumber(quotePrefix(src.businessType.shortCode));
+
+  /*
+   * Revision numbers were derived from the source's own version, so revising
+   * the same accepted quotation twice produced the suffix that already existed
+   * and the insert failed on the unique number. Both the suffix and the version
+   * now come from the whole family — the root and every revision hanging off it
+   * — and the suffix is stepped until it is actually free, which also survives
+   * a revision having been deleted.
+   */
+  const family = await prisma.quotation.findMany({
+    where: { OR: [{ id: rootId }, { parentId: rootId }] },
+    select: { version: true },
+  });
+  const nextVersion = Math.max(...family.map((q) => q.version), src.version) + 1;
+
+  let number: string;
+  if (mode === 'revision') {
+    const root = (await prisma.quotation.findUnique({ where: { id: rootId } }))!;
+    let n = nextVersion - 1;
+    do {
+      number = `${root.number}-R${n}`;
+      n += 1;
+    } while (await prisma.quotation.findUnique({ where: { number } }));
+  } else {
+    number = await nextNumber(quotePrefix(src.businessType.shortCode));
+  }
 
   const copy = await prisma.quotation.create({
     data: {
       number,
-      version: mode === 'revision' ? src.version + 1 : 1,
+      version: mode === 'revision' ? nextVersion : 1,
       parentId: mode === 'revision' ? rootId : null,
       businessTypeId: src.businessTypeId,
       clientId: src.clientId,
