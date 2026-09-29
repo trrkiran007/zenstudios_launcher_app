@@ -278,37 +278,65 @@ export function QuotationEditor() {
       const same = (a: number, b: number) => Math.abs(a - b) < 0.01;
 
       /*
-       * Rows are edited in place — never added, never removed. A quotation can
-       * hold hand-written lines and hardware rows the designer typed, and
-       * rebuilding the list would quietly drop whatever could not be matched
-       * back to a catalogue item. Hardware rows are added when an item is
-       * picked from the rate card, and only there.
+       * Three rules, learned the hard way:
+       *
+       *  - never duplicate: a cabinet only gets a hardware row if the line
+       *    immediately after it is not already one;
+       *  - never drop: a hardware row that cannot be traced back to a cabinet
+       *    is kept, because the designer may have written it by hand;
+       *  - do add: selecting a hardware tier has to put rows on the cabinets
+       *    that lack them, or picking a brand appears to do nothing.
        */
-      const sections = next.sections.map((section) => ({
-        ...section,
-        items: section.items.map((line) => {
+      const repriceHardware = (line: QuotationItem) => {
+        if (!hardwareChanged || !after.hardware) return line;
+        const ratio = (after.hardware.multiplier || 1) / (before.hardware?.multiplier || 1);
+        return {
+          ...line,
+          description: `${HARDWARE_PREFIX} — ${after.hardware.name}`,
+          specNote: after.hardware.specNote ?? line.specNote,
+          rate: Math.round(line.rate * ratio * 100) / 100,
+          costPrice: Math.round(line.costPrice * ratio * 100) / 100,
+        };
+      };
+
+      const sections = next.sections.map((section) => {
+        const out: QuotationItem[] = [];
+        const src = section.items;
+
+        for (let i = 0; i < src.length; i++) {
+          const line = src[i];
+
+          // Reached only when no preceding cabinet claimed it.
           if (isHardwareLine(line)) {
-            // Hardware answers to the hardware dial alone: board grade,
-            // thickness and laminate say nothing about hinges.
-            if (!hardwareChanged || !after.hardware) return line;
-            const ratio = (after.hardware.multiplier || 1) / (before.hardware?.multiplier || 1);
-            return {
-              ...line,
-              description: `${HARDWARE_PREFIX} — ${after.hardware.name}`,
-              specNote: after.hardware.specNote ?? line.specNote,
-              rate: Math.round(line.rate * ratio * 100) / 100,
-              costPrice: Math.round(line.costPrice * ratio * 100) / 100,
-            };
+            out.push(repriceHardware(line));
+            continue;
           }
 
           const item = itemOf(line.catalogItemId);
-          if (!item?.carcassBuilt) return line;
-          const was = resolveRate(item, before);
-          if (!same(line.rate, was.rate)) return line; // typed over by hand
-          const now = resolveRate(item, after);
-          return { ...line, rate: now.rate, costPrice: now.cost };
-        }),
-      }));
+          let cabinet = line;
+          if (item?.carcassBuilt) {
+            const was = resolveRate(item, before);
+            if (same(line.rate, was.rate)) {
+              const now = resolveRate(item, after);
+              cabinet = { ...line, rate: now.rate, costPrice: now.cost };
+            }
+          }
+          out.push(cabinet);
+
+          if (!item?.hardwareClass || !after.hardware) continue;
+
+          const following = src[i + 1];
+          if (following && isHardwareLine(following)) {
+            out.push(repriceHardware(following));
+            i += 1; // claimed, so the loop does not see it again
+          } else {
+            const fresh = hardwareLineFor(item, cabinet.quantity, after);
+            if (fresh) out.push(fresh);
+          }
+        }
+
+        return { ...section, items: out };
+      });
 
       return { ...next, sections };
     });
@@ -636,9 +664,15 @@ export function QuotationEditor() {
                     </Select>
                   </Field>
 
-                  <Field label="Hardware" hint={hardwareTier?.brands ?? 'Printed as one line per cabinet'}>
+                  <Field
+                    label="Hardware"
+                    hint={
+                      hardwareTier?.brands ??
+                      'One line per cabinet. Choosing a brand adds the line to cabinets that lack one.'
+                    }
+                  >
                     <Select value={draft.hardwareTierId} onChange={(e) => setSpec({ hardwareTierId: e.target.value })}>
-                      <option value="">No hardware line</option>
+                      <option value="">Not specified — no hardware lines</option>
                       {tiers.hardware.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.name}

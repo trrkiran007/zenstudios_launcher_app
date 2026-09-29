@@ -79,8 +79,29 @@ async function startEmbeddedServer() {
   }
 
   const mod = await import(pathToFileURL(SERVER_ENTRY).href);
-  // Port 0 -> the OS picks a free one, so we never fight an already-running copy.
-  const running = await mod.startServer({ port: 0, serveWeb: true });
+
+  /*
+   * Reuse the port we ran on last time.
+   *
+   * This started as port 0 — let the OS choose, so two copies never fight. But
+   * the renderer's localStorage is keyed by origin, and the origin carries the
+   * port, so every launch produced a new, empty store and quietly stranded
+   * every draft the editor had autosaved. Unsaved work only survived while the
+   * app stayed open.
+   *
+   * So: ask for the previous port, and fall back to a fresh one if it is busy.
+   */
+  const remembered = readSettings(DATA_DIR).serverPort;
+  let running;
+  if (remembered) {
+    try {
+      running = await mod.startServer({ port: remembered, serveWeb: true });
+    } catch {
+      console.warn(`[server] port ${remembered} is taken; taking a new one`);
+    }
+  }
+  if (!running) running = await mod.startServer({ port: 0, serveWeb: true });
+  if (running.port !== remembered) writeSettings(DATA_DIR, { serverPort: running.port });
 
   // Render PDFs with Electron's own Chromium. This is why the desktop build
   // does not need Puppeteer at all.

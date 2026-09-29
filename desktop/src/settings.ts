@@ -14,6 +14,15 @@ export type ShellSettings = {
   mode: 'local' | 'remote';
   remoteUrl: string;
   windowBounds?: { width: number; height: number; x?: number; y?: number };
+  /**
+   * The port the embedded server last used.
+   *
+   * Browser storage is scoped to an origin, and the origin includes the port —
+   * so a fresh port every launch silently orphans everything the editor has
+   * autosaved. Keeping the port stable keeps unsaved work reachable across
+   * restarts.
+   */
+  serverPort?: number;
 };
 
 const DEFAULTS: ShellSettings = { mode: 'local', remoteUrl: '' };
