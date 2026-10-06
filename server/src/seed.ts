@@ -11,7 +11,7 @@ import { BUSINESS_TYPES, CATALOGS, INTERIOR_TERMS, INVOICE_TERMS, loadCompanyPro
 import { prisma } from './db.js';
 
 async function main() {
-  console.log('Seeding ZenStudios…');
+  console.log('Seeding…');
 
   // Identity comes from server/company.json (gitignored) so CIN, PAN and TAN
   // never enter version control. See company.example.json.

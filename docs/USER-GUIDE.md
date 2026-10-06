@@ -1,4 +1,4 @@
-# ZenStudios — User Guide
+# BOS — User Guide
 
 Everything you can do in the app, in the order you would normally do it.
 
@@ -21,7 +21,7 @@ For installation and the technical side, see the [README](../README.md).
 10. [Rate card and products](#10-rate-card-and-products)
 11. [Market benchmark](#11-market-benchmark)
 12. [Settings](#12-settings)
-13. [Adding a new line of business](#13-adding-a-new-line-of-business)
+13. [Lines of business, and your own fields](#13-lines-of-business-and-your-own-fields)
 14. [Backing up your data](#14-backing-up-your-data)
 15. [Keyboard shortcuts](#15-keyboard-shortcuts)
 16. [Troubleshooting](#16-troubleshooting)
@@ -31,7 +31,7 @@ For installation and the technical side, see the [README](../README.md).
 
 ## 1. Opening the app
 
-**The Mac app.** Double-click **ZenStudios** in your Applications folder, or keep it in the Dock.
+**The Mac app.** Double-click **BOS** in your Applications folder, or keep it in the Dock.
 Everything runs inside it — there is no terminal and nothing to start first.
 
 The first time you open it, macOS will say it is from an unidentified developer, because the app is
@@ -46,7 +46,8 @@ npm run dev
 then open <http://localhost:5273>.
 
 > The two keep **separate databases**. The Mac app stores data in
-> `~/Library/Application Support/ZenStudios/data`; the terminal version uses `data/` inside the
+> `~/Library/Application Support/BlueMount BOS/data` (older installs keep their existing
+> `ZenStudios` folder); the terminal version uses `data/` inside the
 > project folder. To move what you already have into the Mac app, run `npm run app:import-data`.
 
 ---
@@ -58,7 +59,7 @@ Work through these once, in this order. Ten minutes now saves re-issuing documen
 | # | Where | What to do |
 |---|---|---|
 | 1 | Settings → Company & documents | Add your **GSTIN**. Until it is set, the dashboard warns you and tax invoices print without it. |
-| 2 | Settings → Company & documents | Upload your **logo**. It is embedded directly into PDFs, so use the highest-resolution file you have. Without one, documents print a ZenStudios wordmark. |
+| 2 | Settings → Company & documents | Upload your **logo**. It is embedded directly into PDFs, so use the highest-resolution file you have. Without one, documents print your brand name as a wordmark. |
 | 3 | Settings → Company & documents | Check the registered address and confirm **State = Telangana**. This is what decides CGST+SGST vs IGST on every document. |
 | 4 | Settings → Bank & terms | Add bank account, IFSC and UPI so they appear in the payment block. |
 | 5 | Settings → Bank & terms | Read the default quotation and invoice terms and edit them to match how you actually work. |
@@ -148,6 +149,11 @@ Interior quotations carry four settings, chosen once at the top under **Specific
 every cabinet line in the quotation, so the same wardrobe can be quoted for a budget client or a
 premium one without maintaining separate rate cards.
 
+The block belongs to the line of business, not to quotations in general. Board grade and hardware
+mean something when you are building cabinetry and nothing when you are reselling stock or
+invoicing for services, so **Specification** appears only on a line that has tiers defined for it.
+On the others the quotation goes straight from the header to the items.
+
 | Setting | Choices | What it moves |
 |---|---|---|
 | **Board grade** | HDHMR through Architect, 7 tiers | Cabinet rate, by a fixed ₹/sq.ft |
@@ -155,7 +161,7 @@ premium one without maintaining separate rate cards.
 | **Laminate grade** | Economy / Standard / Premium | Laminate-finish items only |
 | **Hardware** | Standard soft-close through Blum | The hardware line on each cabinet |
 
-The rates come from ZenStudios' own purchase documents, so a tier change moves cost and price
+The rates come from your own purchase documents, so a tier change moves cost and price
 together and your margin holds steady whichever specification you quote.
 
 Line rates stay editable afterwards. Changing a setting re-prices the cabinet lines; anything typed
@@ -646,8 +652,10 @@ Your own rate benchmarking lives separately, under **Reports → My rate history
 |---|---|
 | **Company & documents** | Brand name, legal entity, trademark line, logo, brand colour, GSTIN / CIN / PAN / TAN, registered address, contact details |
 | **Bank & terms** | Bank and UPI details, document number prefixes, default quote validity, and the default quotation and invoice terms |
-| **Lines of business** | Add, edit and deactivate lines of business; edit each one's pipeline stages |
-| **AI & system** | Anthropic API key, PDF engine status, and where your data lives |
+| **Lines of business** | Add, edit, switch off and re-enable lines of business; edit each one's pipeline stages |
+| **AI & system** | Anthropic API key, PDF engine status, where your data lives, and what version you are running |
+
+The **Company & documents** tab also carries **Other identifiers** — see below.
 
 ### The API key
 
@@ -657,7 +665,9 @@ It is stored locally with owner-only permissions. Everything else in the app wor
 
 ---
 
-## 13. Adding a new line of business
+## 13. Lines of business, and your own fields
+
+### Adding one
 
 **Settings → Lines of business → Add.**
 
@@ -665,19 +675,50 @@ Give it a name, a short code for document numbers (`LND` → `ZS/LND/26-27/001`)
 its quotations are grouped into sections or are a single flat list. It immediately gets its own
 numbering series, pipeline, catalog and default terms. Nothing needs to be rebuilt.
 
+### Invoicing for something that is not a project
+
+**General** is there from the start for work that does not belong to any of your trading lines —
+a staffing resource, a consulting day, a one-off service. It numbers as `GEN`, prints its items
+under **Services Summary**, and has a short pipeline, so you can raise a quotation or an invoice
+without inventing a line of business for it.
+
+### Switching a line of business off
+
+Each line has a toggle. Switching one off hides it from the new-quotation picker and from the
+filters; nothing is deleted, and everything already quoted, delivered or invoiced under it stays
+exactly where it is. Switch it back on and it returns, numbering series intact.
+
+Two things are refused rather than done quietly:
+
+- **A line with work in flight.** If it still has open quotations or active projects, the app says
+  so and names the counts. Close or archive them first.
+- **General.** It is the fallback line and is always on.
+
+### Other identifiers
+
+**Settings → Company & documents → Other identifiers.**
+
+GSTIN, CIN, PAN and TAN are Indian. A company elsewhere wants an EIN, a VAT number, a company
+registration number — or nothing at all. Rather than a field per country, add your own: a label, a
+value, and whether it prints.
+
+A field with no value never prints, so you can leave labelled placeholders here without them
+reaching a client. The ones you fill in appear on quotations and invoices alongside the identifiers
+the app models itself.
+
 ---
 
 ## 14. Backing up your data
 
 Everything — database, attachments, logo, settings — lives in one folder.
 
-**In the Mac app:** menu **ZenStudios → Back up data…** writes a dated zip wherever you choose.
-**ZenStudios → Reveal data folder** opens the folder itself.
+**In the Mac app:** menu **BOS → Back up data…** writes a dated zip wherever you choose.
+**BOS → Reveal data folder** opens the folder itself.
 
 The folder is:
 
 ```
-~/Library/Application Support/ZenStudios/data/
+~/Library/Application Support/BlueMount BOS/data/
    app.db          the entire database
    uploads/        attachments and competitor documents
    branding/       your logo
@@ -744,7 +785,7 @@ There are two kinds, and the app tells them apart on its own.
 The file carries your company identity, logo, every line of business with its pipeline stages, and —
 if you tick **Include the rate card** — your full catalog with cost prices.
 
-They install ZenStudios, open **Settings → Share & transfer → Open a setup file**, pick it, and their
+They install BOS, open **Settings → Share & transfer → Open a setup file**, pick it, and their
 app is configured exactly like yours. It takes a few seconds.
 
 > **This file contains your GSTIN, CIN, PAN, bank details and your buying prices.** Send it only to
@@ -786,7 +827,7 @@ someone fills them in.
 ### Double-clicking a file
 
 The Mac app registers itself as the handler for `.zns`, so double-clicking one in Finder opens
-ZenStudios and imports it straight away — a shared quotation opens on screen, a setup file applies
+BOS and imports it straight away — a shared quotation opens on screen, a setup file applies
 itself and tells you what changed.
 
 ### One rule worth agreeing on
@@ -801,7 +842,7 @@ shared server — at which point this whole step disappears.
 
 Today the app runs entirely on your Mac, with one database. When you are ready for the team to work
 in the same quotations and projects, the same server this app already runs gets deployed once
-centrally, and the Mac app is pointed at it from **ZenStudios → Server…**. The interface and your
+centrally, and the Mac app is pointed at it from **BOS → Server…**. The interface and your
 data model do not change. What has to be added at that point is user accounts and permissions —
 tasks already carry an assignee and notes already carry an author, so that is an addition rather than
 a rewrite.

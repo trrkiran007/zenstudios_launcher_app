@@ -7,10 +7,11 @@ import {
   Badge, Button, Card, Checkbox, Field, Input, Loading, Modal, PageHeader,
   Select, Tabs, Textarea, useAction,
 } from '../components/ui';
-import { api } from '../lib/api';
+import { api, useApi } from '../lib/api';
 import { useApp } from '../lib/app-context';
 import { downloadFile, expectKind, pickTransferFile, stamp } from '../lib/transfer';
-import type { BusinessType, Organization, PipelineStage, Quotation } from '../lib/types';
+import type { BusinessType, OrgCustomField, Organization, PipelineStage, Quotation } from '../lib/types';
+import { attribution, PRODUCT_NAME, VENDOR } from '../lib/product';
 
 export function Settings() {
   const { org, businessTypes, system, states, refresh, loading } = useApp();
@@ -190,6 +191,8 @@ function CompanyTab({
         </div>
       </Card>
 
+      <CustomFields />
+
       <Card
         title="Registered address & contact"
         actions={<Button variant="primary" icon={<Save className="size-4" />} loading={busy} onClick={save}>Save</Button>}
@@ -332,6 +335,19 @@ function BusinessTab({ types, onSaved }: { types: BusinessType[]; onSaved: () =>
   const [editing, setEditing] = useState<Partial<BusinessType> | null>(null);
   const [stagesFor, setStagesFor] = useState<BusinessType | null>(null);
 
+  /**
+   * Hide a line of business from new work.
+   *
+   * The server refuses when it still has open quotations or active projects —
+   * switching it off would leave them unreachable — and refuses outright for
+   * the general line, which is the fallback for everything else.
+   */
+  const toggleActive = (bt: BusinessType) =>
+    run(async () => {
+      await api.put(`/business-types/${bt.id}`, { active: !bt.active });
+      await onSaved();
+    }, 'Updated');
+
   const save = () =>
     run(async () => {
       const body = { ...editing };
@@ -360,7 +376,8 @@ function BusinessTab({ types, onSaved }: { types: BusinessType[]; onSaved: () =>
               <span className="flex items-center gap-2">
                 <span className="size-2.5 rounded-full" style={{ background: bt.color }} />
                 {bt.name}
-                {!bt.active && <Badge tone="amber">inactive</Badge>}
+                {!bt.active && <Badge tone="amber">switched off</Badge>}
+                {bt.protected && <Badge tone="slate">always on</Badge>}
               </span>
             }
             subtitle={`${bt.shortCode} · ${bt.layout === 'SECTIONED' ? `grouped by ${bt.sectionLabel.toLowerCase()}` : 'single item list'}`}
@@ -370,6 +387,11 @@ function BusinessTab({ types, onSaved }: { types: BusinessType[]; onSaved: () =>
                   Stages
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setEditing(bt)}>Edit</Button>
+                {!bt.protected && (
+                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => toggleActive(bt)}>
+                    {bt.active ? 'Switch off' : 'Switch on'}
+                  </Button>
+                )}
               </>
             }
           >
@@ -625,7 +647,7 @@ function TransferTab({ org, onSaved }: { org: Organization; onSaved: () => Promi
   const exportSetup = () =>
     run(async () => {
       const file = await api.get<unknown>(`/transfer/setup?catalog=${withCatalog ? '1' : '0'}`);
-      downloadFile(`ZenStudios-setup-${stamp()}`, file);
+      downloadFile(`${PRODUCT_NAME}-setup-${stamp()}`, file);
     }, 'Setup file downloaded');
 
   const importSetup = () =>
@@ -655,7 +677,7 @@ function TransferTab({ org, onSaved }: { org: Organization; onSaved: () => Promi
       >
         <p className="mb-4 text-sm text-slate-600">
           The setup file carries your company identity, logo, lines of business with their pipeline
-          stages, and — if you include it — your full rate card. A colleague installs ZenStudios,
+          stages, and — if you include it — your full rate card. A colleague installs {PRODUCT_NAME},
           opens this <code className="rounded bg-slate-100 px-1 py-0.5 text-[0.8em]">.zns</code> file
           here, and their app is configured exactly like yours.
         </p>
@@ -827,6 +849,134 @@ function AiTab({ system, onSaved }: { system: ReturnType<typeof useApp>['system'
           Back up the whole <code className="font-mono">data/</code> folder and you have backed up everything.
         </p>
       </Card>
+
+      <About />
     </div>
+  );
+}
+
+/**
+ * The application's own identity, as opposed to the business using it.
+ *
+ * Nothing here is editable. Everywhere else in Settings the business describes
+ * itself; this one card says what the software is and who wrote it, and it
+ * reads the same on every install.
+ */
+function About() {
+  const { system } = useApp();
+
+  return (
+    <Card title="About this app">
+      <dl className="space-y-2 text-sm">
+        <div className="flex gap-3">
+          <dt className="w-28 shrink-0 text-slate-500">Application</dt>
+          <dd className="font-medium text-slate-800">{PRODUCT_NAME}</dd>
+        </div>
+        <div className="flex gap-3">
+          <dt className="w-28 shrink-0 text-slate-500">Version</dt>
+          <dd className="font-mono text-slate-800">
+            {system?.appVersion ?? '—'}
+            {system && !system.desktop ? ' (browser)' : ''}
+          </dd>
+        </div>
+        <div className="flex gap-3">
+          <dt className="w-28 shrink-0 text-slate-500">Built by</dt>
+          <dd className="font-medium text-slate-800">{VENDOR}</dd>
+        </div>
+      </dl>
+      <p className="mt-3 text-xs text-slate-500">
+        {attribution(system?.appVersion)}. These details identify the software itself and are not
+        editable — your own company name, logo and identifiers are on the Company tab.
+      </p>
+    </Card>
+  );
+}
+
+/**
+ * Organisation details the app does not model natively.
+ *
+ * Statutory identifiers are jurisdictional — GSTIN, CIN, PAN and TAN are
+ * Indian; a US entity wants an EIN and none of the rest. Rather than a column
+ * per country, anything extra is a labelled value here, printed when it is set.
+ */
+function CustomFields() {
+  const { run, busy } = useAction();
+  const { data: fields, reload } = useApi<OrgCustomField[]>('/settings/custom-fields');
+  const [label, setLabel] = useState('');
+  const [value, setValue] = useState('');
+
+  const add = () =>
+    run(async () => {
+      await api.post('/settings/custom-fields', {
+        label: label.trim(),
+        value: value.trim() || null,
+        order: (fields?.length ?? 0) + 1,
+      });
+      setLabel('');
+      setValue('');
+      await reload();
+    }, 'Field added');
+
+  const update = (f: OrgCustomField, patch: Partial<OrgCustomField>) =>
+    run(async () => {
+      await api.put(`/settings/custom-fields/${f.id}`, patch);
+      await reload();
+    }, 'Saved');
+
+  const remove = (f: OrgCustomField) =>
+    run(async () => {
+      await api.del(`/settings/custom-fields/${f.id}`);
+      await reload();
+    }, 'Field removed');
+
+  return (
+    <Card
+      title="Additional details"
+      subtitle="Anything else that belongs on your documents — an EIN, a licence number, a registration"
+    >
+      {!!fields?.length && (
+        <ul className="mb-4 space-y-2">
+          {fields.map((f) => (
+            <li key={f.id} className="grid items-center gap-2 sm:grid-cols-[1fr_1.4fr_auto_auto]">
+              <Input
+                value={f.label}
+                onChange={(e) => update(f, { label: e.target.value })}
+                placeholder="Label"
+              />
+              <Input
+                value={f.value ?? ''}
+                onChange={(e) => update(f, { value: e.target.value })}
+                placeholder="Leave blank and it will not print"
+              />
+              <Checkbox
+                checked={f.onDocuments}
+                onChange={(v) => update(f, { onDocuments: v })}
+                label="Print"
+              />
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => remove(f)}>
+                <Trash2 className="size-3.5 text-red-500" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="grid items-end gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
+        <Field label="Label">
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="EIN" />
+        </Field>
+        <Field label="Value">
+          <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="12-3456789" />
+        </Field>
+        <Button variant="primary" disabled={!label.trim() || busy} onClick={add}>
+          Add
+        </Button>
+      </div>
+
+      <p className="mt-3 text-xs text-slate-500">
+        A field with no value is never printed, so you can keep placeholders here without them
+        reaching a client.
+      </p>
+    </Card>
   );
 }

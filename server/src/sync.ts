@@ -35,6 +35,7 @@ async function main() {
           color: seed.color,
           order: seed.order,
           enableBenchmark: seed.enableBenchmark,
+          protected: !!seed.protected,
           defaultTerms: seed.defaultTerms,
           stages: {
             create: seed.stages.map((stage, order) => ({

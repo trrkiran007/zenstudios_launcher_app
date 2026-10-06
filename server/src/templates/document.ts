@@ -89,6 +89,11 @@ export type DocumentModel = {
   priceDisplay: 'DETAILED' | 'AMOUNT_ONLY' | 'SECTION_ONLY';
   /** e.g. "BWP 710 16mm · Standard laminate · Ebco hardware". */
   specSummary?: string | null;
+  /**
+   * Organisation details the app does not model natively — an EIN, a licence
+   * number, whatever the jurisdiction expects. Empty ones never reach here.
+   */
+  customFields?: { label: string; value: string }[];
   showSectionTotals: boolean;
   notes?: string | null;
   terms?: string | null;
@@ -283,6 +288,7 @@ export function renderDocumentHtml(model: DocumentModel): string {
 
   const regLines = [
     org.gstin ? `<b>GSTIN:</b> ${esc(org.gstin)}` : null,
+    ...(model.customFields ?? []).map((f) => `<b>${esc(f.label)}:</b> ${esc(f.value)}`),
     org.cin ? `<b>CIN:</b> ${esc(org.cin)}` : null,
     org.pan ? `<b>PAN:</b> ${esc(org.pan)}` : null,
   ].filter(Boolean);

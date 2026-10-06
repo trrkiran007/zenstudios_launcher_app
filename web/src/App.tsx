@@ -15,10 +15,11 @@ import { Quotations } from './pages/Quotations';
 import { QuotationView } from './pages/QuotationView';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
+import { PRODUCT_NAME } from './lib/product';
 
 function Boot({ children }: { children: React.ReactNode }) {
   const { loading, error, refresh } = useApp();
-  if (loading) return <Loading label="Starting ZenStudios…" />;
+  if (loading) return <Loading label={`Starting ${PRODUCT_NAME}…`} />;
   if (error) {
     return (
       <div className="mx-auto max-w-xl px-4 py-20">

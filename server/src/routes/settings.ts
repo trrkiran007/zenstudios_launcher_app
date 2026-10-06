@@ -44,6 +44,17 @@ const orgSchema = z.object({
   proformaPrefix: z.string().optional(),
 });
 
+/** Organisation extras that are set and marked for printing. */
+export async function printableCustomFields() {
+  const rows = await prisma.orgCustomField.findMany({
+    where: { onDocuments: true },
+    orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+  });
+  return rows
+    .filter((f) => (f.value ?? '').trim())
+    .map((f) => ({ label: f.label, value: (f.value ?? '').trim() }));
+}
+
 export async function getOrg() {
   const existing = await prisma.organization.findUnique({ where: { id: 'org' } });
   if (existing) return existing;
@@ -112,6 +123,47 @@ settingsRouter.delete(
       if (fs.existsSync(file)) fs.rmSync(file, { force: true });
     }
     res.json(await prisma.organization.update({ where: { id: 'org' }, data: { logoPath: null } }));
+  }),
+);
+
+
+/* ---------------------------- custom fields ----------------------------- */
+
+const customFieldSchema = z.object({
+  label: z.string().min(1),
+  value: z.string().nullish(),
+  onDocuments: z.boolean().default(true),
+  order: z.coerce.number().int().default(0),
+});
+
+settingsRouter.get(
+  '/custom-fields',
+  h(async (_req, res) => {
+    res.json(await prisma.orgCustomField.findMany({ orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] }));
+  }),
+);
+
+settingsRouter.post(
+  '/custom-fields',
+  h(async (req, res) => {
+    const data = customFieldSchema.parse(req.body);
+    res.status(201).json(await prisma.orgCustomField.create({ data: { ...data, value: data.value ?? null } }));
+  }),
+);
+
+settingsRouter.put(
+  '/custom-fields/:id',
+  h(async (req, res) => {
+    const data = parsePatch(customFieldSchema, req.body);
+    res.json(await prisma.orgCustomField.update({ where: { id: String(req.params.id) }, data }));
+  }),
+);
+
+settingsRouter.delete(
+  '/custom-fields/:id',
+  h(async (req, res) => {
+    await prisma.orgCustomField.delete({ where: { id: String(req.params.id) } });
+    res.status(204).end();
   }),
 );
 

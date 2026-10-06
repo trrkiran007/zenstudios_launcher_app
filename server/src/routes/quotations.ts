@@ -8,7 +8,7 @@ import { htmlToPdf } from '../lib/pdf.js';
 import { describeSpec } from '../lib/spec-pricing.js';
 import { computeTotals, lineAmount } from '../lib/totals.js';
 import { renderDocumentHtml, type DocumentModel } from '../templates/document.js';
-import { getOrg } from './settings.js';
+import { getOrg, printableCustomFields } from './settings.js';
 
 export const quotationsRouter = Router();
 
@@ -586,6 +586,7 @@ export async function quotationDocument(id: string): Promise<DocumentModel> {
     },
     sections: quote.sections.map((s) => ({ name: s.name, notes: s.notes, items: s.items })),
     totals,
+    customFields: await printableCustomFields(),
     showTax: quote.showTaxBreakup,
     priceDisplay: (quote.priceDisplay as 'DETAILED' | 'AMOUNT_ONLY' | 'SECTION_ONLY') ?? 'DETAILED',
     specSummary: describeSpec({

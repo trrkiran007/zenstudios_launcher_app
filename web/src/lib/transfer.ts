@@ -5,9 +5,10 @@
  * like — email, shared drive, USB stick. Nothing here talks to the network
  * beyond the app's own API, so it works fully offline.
  */
+import { PRODUCT_NAME } from './product';
 
 /**
- * ZenStudios transfer file extension. The contents are ordinary JSON — the
+ * The app's own transfer file extension. The contents are ordinary JSON — the
  * extension exists so these files are recognisable at a glance, and so the
  * desktop app can register itself as their handler.
  */
@@ -46,7 +47,7 @@ export function pickTransferFile(): Promise<unknown | null> {
       try {
         resolve(JSON.parse(await file.text()));
       } catch {
-        reject(new Error(`"${file.name}" could not be read as a ZenStudios file.`));
+        reject(new Error(`"${file.name}" could not be read as a ${PRODUCT_NAME} file.`));
       }
     };
 
@@ -65,7 +66,7 @@ export function pickTransferFile(): Promise<unknown | null> {
 export function expectKind(file: unknown, kind: string, label: string): Record<string, unknown> {
   const obj = file as Record<string, unknown> | null;
   if (!obj || typeof obj !== 'object' || obj.kind !== kind) {
-    throw new Error(`That file is not a ZenStudios ${label}. Check you picked the right one.`);
+    throw new Error(`That file is not a ${PRODUCT_NAME} ${label}. Check you picked the right one.`);
   }
   return obj;
 }

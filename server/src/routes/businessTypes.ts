@@ -14,6 +14,7 @@ const btSchema = z.object({
   description: z.string().nullish(),
   color: z.string().default('#16A34A'),
   active: z.boolean().default(true),
+  protected: z.boolean().optional(),
   order: z.coerce.number().int().default(0),
   enableBenchmark: z.boolean().default(false),
   defaultTerms: z.string().nullish(),
@@ -62,6 +63,30 @@ businessTypesRouter.post(
 businessTypesRouter.put(
   '/:id',
   h(async (req, res) => {
+    const id = String(req.params.id);
+    const current = await prisma.businessType.findUnique({ where: { id } });
+    if (!current) throw notFound('Line of business');
+
+    // Switching a line off hides it from new work; it must not orphan work
+    // already under way, and the general line is the fallback for everything
+    // else so it always stays available.
+    const turningOff = req.body?.active === false && current.active;
+    if (turningOff) {
+      if (current.protected) {
+        throw badRequest(`${current.name} is the fallback line of business and cannot be switched off.`);
+      }
+      const [quotes, projects] = await Promise.all([
+        prisma.quotation.count({ where: { businessTypeId: id, archivedAt: null, status: { notIn: ['REJECTED', 'EXPIRED', 'SUPERSEDED'] } } }),
+        prisma.project.count({ where: { businessTypeId: id, status: { in: ['ACTIVE', 'ON_HOLD'] } } }),
+      ]);
+      if (quotes || projects) {
+        throw badRequest(
+          `${current.name} still has ${quotes} open quotation(s) and ${projects} active project(s). ` +
+            'Close or archive them first — switching it off would leave them unreachable.',
+        );
+      }
+    }
+
     const data = parsePatch(btSchema, req.body);
     const updated = await prisma.businessType.update({
       where: { id: String(req.params.id) },
