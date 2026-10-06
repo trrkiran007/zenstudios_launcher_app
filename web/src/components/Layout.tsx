@@ -90,9 +90,14 @@ export function Layout() {
   const { org, system } = useApp();
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex h-dvh flex-col overflow-hidden">
       {/* macOS: the window has no native title bar, so this strip is what you
-          drag it by. The left inset clears the traffic lights. */}
+          drag it by, and the left inset clears the traffic lights.
+
+          It has to stay on screen. When the whole document scrolled, this
+          strip went with it, the traffic lights ended up over the sidebar
+          links, and the window could no longer be dragged at all. The shell
+          is the viewport now and only the main column scrolls. */}
       {system?.desktop && (
         <div className="app-drag flex h-9 shrink-0 items-center border-b border-slate-200 bg-slate-50 pl-20">
           <span className="text-[11px] font-medium text-slate-400 select-none">
@@ -149,7 +154,7 @@ export function Layout() {
           <span className="text-sm font-semibold">{org?.brandName ?? PRODUCT_NAME}</span>
         </header>
 
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="min-w-0 flex-1 overflow-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <Outlet />
           </div>
