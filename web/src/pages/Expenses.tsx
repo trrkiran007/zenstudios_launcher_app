@@ -8,6 +8,7 @@ import {
 import { useApi } from '../lib/api';
 import { date, dateInput, money } from '../lib/format';
 import type { Expense } from '../lib/types';
+import { taxLabel } from '../lib/format';
 
 export function Expenses() {
   const startOfFy = useMemo(() => {
@@ -71,7 +72,7 @@ export function Expenses() {
       <div className="mb-5 grid gap-4 sm:grid-cols-4">
         <Stat label="Entries" value={rows.length} />
         <Stat label="Total spend" value={money(total)} />
-        <Stat label="GST component" value={money(gst)} sub="Available as input credit" />
+        <Stat label={`${taxLabel()} component`} value={money(gst)} sub="Recoverable where your rules allow it" />
         <Stat label="Unpaid" value={money(unpaid)} tone={unpaid > 0 ? 'warn' : 'default'} />
       </div>
 
@@ -114,7 +115,7 @@ export function Expenses() {
                 <Th>Vendor</Th>
                 <Th>Description</Th>
                 <Th align="right">Amount</Th>
-                <Th align="right">GST</Th>
+                <Th align="right">{taxLabel()}</Th>
                 <Th>Status</Th>
               </tr>
             </thead>

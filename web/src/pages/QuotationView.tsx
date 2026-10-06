@@ -14,6 +14,7 @@ import { date, dateTime, money, num, pct } from '../lib/format';
 import { downloadFile, slug, stamp } from '../lib/transfer';
 import type { Invoice, Note, Project, Quotation } from '../lib/types';
 import { PRODUCT_NAME } from '../lib/product';
+import { itemCodeLabel, taxLabel } from '../lib/format';
 
 /*
  * The statuses are the same whatever the document is called, but the words are
@@ -178,7 +179,7 @@ export function QuotationView() {
                     <Th>Unit</Th>
                     <Th align="right">Qty</Th>
                     <Th align="right">Rate</Th>
-                    <Th align="right">GST</Th>
+                    <Th align="right">{taxLabel()}</Th>
                     <Th align="right">Amount</Th>
                   </tr>
                 </thead>
@@ -189,7 +190,7 @@ export function QuotationView() {
                       <Td>
                         <p className="font-medium text-slate-900">{item.description}</p>
                         {item.specNote && <p className="mt-0.5 text-xs text-slate-500">{item.specNote}</p>}
-                        {item.hsnSac && <p className="mt-0.5 text-xs text-slate-400">HSN/SAC {item.hsnSac}</p>}
+                        {item.hsnSac && <p className="mt-0.5 text-xs text-slate-400">{itemCodeLabel()} {item.hsnSac}</p>}
                       </Td>
                       <Td>{item.unit}</Td>
                       <Td align="right">{num(item.quantity)}</Td>

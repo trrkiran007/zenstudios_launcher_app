@@ -4,6 +4,7 @@ import { api, useApi } from '../lib/api';
 import { useApp } from '../lib/app-context';
 import type { Client } from '../lib/types';
 import { Button, Field, Input, Modal, Select, Textarea, useAction } from './ui';
+import { usesGstin } from '../lib/format';
 
 const EMPTY = {
   name: '', kind: 'COMPANY' as const, contactPerson: '', email: '', phone: '', gstin: '',
@@ -66,7 +67,9 @@ export function ClientForm({
       onClose={onClose}
       wide
       title={initial?.id ? 'Edit client' : 'New client'}
-      description="The GSTIN's first two digits set the place of supply, which decides CGST+SGST vs IGST."
+      description={usesGstin()
+        ? "The GSTIN's first two digits set the place of supply, which decides CGST+SGST vs IGST."
+        : "The country decides whether a sale to this client is domestic or an export."}
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -93,28 +96,33 @@ export function ClientForm({
           <Input type="email" value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} />
         </Field>
         <Field label="Phone">
-          <Input value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="+91 …" />
+          <Input value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="Phone" />
         </Field>
-        <Field label="GSTIN" hint="Leave blank for unregistered clients">
-          <Input
-            value={form.gstin ?? ''}
-            onChange={(e) => {
-              const gstin = e.target.value.toUpperCase();
-              const code = gstin.slice(0, 2);
-              setForm((f: any) => ({
-                ...f,
-                gstin,
-                ...(/^\d{2}$/.test(code)
-                  ? { stateCode: code, state: regions.find((r) => r.code === code)?.name ?? f.state }
-                  : {}),
-              }));
-            }}
-            placeholder="36AAECO9870D1Z5"
-          />
-        </Field>
-        <Field label="PAN">
-          <Input value={form.pan ?? ''} onChange={(e) => set('pan', e.target.value.toUpperCase())} />
-        </Field>
+        {/* GSTIN and PAN are Indian; a US or NZ client has neither. */}
+        {usesGstin() && (
+          <>
+            <Field label="GSTIN" hint="Leave blank for unregistered clients">
+              <Input
+                value={form.gstin ?? ''}
+                onChange={(e) => {
+                  const gstin = e.target.value.toUpperCase();
+                  const code = gstin.slice(0, 2);
+                  setForm((f: any) => ({
+                    ...f,
+                    gstin,
+                    ...(/^\d{2}$/.test(code)
+                      ? { stateCode: code, state: regions.find((r) => r.code === code)?.name ?? f.state }
+                      : {}),
+                  }));
+                }}
+                placeholder="36AAECO9870D1Z5"
+              />
+            </Field>
+            <Field label="PAN">
+              <Input value={form.pan ?? ''} onChange={(e) => set('pan', e.target.value.toUpperCase())} />
+            </Field>
+          </>
+        )}
         <Field label="Address line 1" className="sm:col-span-2">
           <Input value={form.addressLine1 ?? ''} onChange={(e) => set('addressLine1', e.target.value)} />
         </Field>

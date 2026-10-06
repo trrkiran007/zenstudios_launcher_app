@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useApp } from '../lib/app-context';
-import { money } from '../lib/format';
+import { money, taxLabel } from '../lib/format';
 import {
   Badge, Button, Checkbox, Field, Input, Modal, Select, Textarea, cx, useAction,
 } from './ui';
@@ -220,8 +220,8 @@ export function RateCardImport({
             {result.confidence.toLowerCase()} confidence
           </Badge>
           {result.pageCount && <Badge>{result.pageCount} page(s)</Badge>}
-          {result.ratesIncludeGst === true && <Badge tone="amber">rates stated GST-inclusive</Badge>}
-          {result.ratesIncludeGst === false && <Badge tone="blue">rates stated GST-exclusive</Badge>}
+          {result.ratesIncludeGst === true && <Badge tone="amber">rates stated {taxLabel()}-inclusive</Badge>}
+          {result.ratesIncludeGst === false && <Badge tone="blue">rates stated {taxLabel()}-exclusive</Badge>}
         </div>
         {result.notes && <p className="text-xs text-slate-600">{result.notes}</p>}
 
@@ -229,8 +229,8 @@ export function RateCardImport({
           <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs ring-1 ring-amber-200">
             <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
             <p className="text-amber-800">
-              This document says its rates already include GST. Your catalog rates should be
-              <b> exclusive</b> of GST, since tax is added on the quotation. Divide these down before
+              This document says its rates already include {taxLabel()}. Your catalog rates should be
+              <b> exclusive</b> of {taxLabel()}, since tax is added on the quotation. Divide these down before
               importing, or import and correct them after.
             </p>
           </div>
@@ -335,7 +335,7 @@ export function RateCardImport({
                     />
                   </label>
                   <label>
-                    <span className="mb-1 block text-[11px] text-slate-500">GST %</span>
+                    <span className="mb-1 block text-[11px] text-slate-500">{taxLabel()} %</span>
                     <Input
                       type="number"
                       step="0.5"

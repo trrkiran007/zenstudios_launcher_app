@@ -52,6 +52,15 @@ model Organization {
   bankIfsc        String?
   bankBranch      String?
   upiId           String?
+  /*
+   * The rest of the world's payment details. Which of these apply is decided
+   * by the country profile, not by the schema — a US client needs a routing
+   * number and to know whether the account is checking or savings, and an
+   * overseas payer needs a SWIFT code wherever the account is.
+   */
+  bankRouting     String?
+  bankAccountType String?
+  bankSwift       String?
 
   defaultTerms        String?
   defaultInvoiceTerms String?

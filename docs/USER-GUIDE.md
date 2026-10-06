@@ -754,6 +754,29 @@ it does not go back and recompute tax on anything already issued.
 Three countries are set up. Ask and more can be added; each is one entry in a
 list.
 
+### Payment details
+
+**Settings → Bank & terms.**
+
+How a client is told where to send the money differs by country in kind, not
+just in name — so the form asks for what applies and nothing else:
+
+| India | United States | New Zealand |
+|---|---|---|
+| Account name | Account name | Account name |
+| Bank, Branch | Bank | Bank |
+| Account number | Account number | Account number |
+| IFSC | **Account type** — checking or savings | *(bank and branch are inside the account number)* |
+| UPI ID | **Routing number (ABA)** | |
+| SWIFT / BIC | SWIFT / BIC | SWIFT / BIC |
+
+SWIFT is on every country because an overseas client paying by wire needs it
+wherever your account is. A field you leave blank is never printed, so nothing
+empty reaches a client.
+
+> US banks sometimes use a different routing number for wires than for ACH.
+> Put the one you want to be paid on.
+
 ### How tax is decided
 
 From **both** countries — yours and your client's — because that is what

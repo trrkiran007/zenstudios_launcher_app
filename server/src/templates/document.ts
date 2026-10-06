@@ -30,6 +30,9 @@ export type DocOrg = {
   bankIfsc?: string | null;
   bankBranch?: string | null;
   upiId?: string | null;
+  bankRouting?: string | null;
+  bankAccountType?: string | null;
+  bankSwift?: string | null;
 };
 
 export type DocParty = {
@@ -285,8 +288,9 @@ export function renderDocumentHtml(model: DocumentModel): string {
   // A quotation is whatever its line of business calls it — a Statement of
   // Work for services, a Quotation for interiors. The client reads this word.
   const agreement = model.agreementLabel?.trim() || 'Quotation';
+  const taxInvoice = activeCountry().taxSystem === 'INDIA_GST' ? 'Tax Invoice' : 'Invoice';
   const heading =
-    model.kind === 'QUOTATION' ? agreement : model.kind === 'PROFORMA' ? 'Proforma Invoice' : 'Tax Invoice';
+    model.kind === 'QUOTATION' ? agreement : model.kind === 'PROFORMA' ? 'Proforma Invoice' : taxInvoice;
 
   const orgAddress = [
     org.addressLine1,
@@ -304,13 +308,22 @@ export function renderDocumentHtml(model: DocumentModel): string {
     org.pan ? `<b>PAN:</b> ${esc(org.pan)}` : null,
   ].filter(Boolean);
 
-  const bankRows = [
-    ['Account name', org.bankAccountName],
-    ['Bank', [org.bankName, org.bankBranch].filter(Boolean).join(' — ')],
-    ['Account no.', org.bankAccountNo],
-    ['IFSC', org.bankIfsc],
-    ['UPI', org.upiId],
-  ].filter(([, v]) => v) as [string, string][];
+  /*
+   * The payment block prints what the country actually uses. An Indian invoice
+   * carries an IFSC and a UPI id; a US one carries a routing number and says
+   * whether the account is checking or savings. A field with nothing in it is
+   * left out, so switching country never prints an empty row.
+   */
+  const bankRows = activeCountry()
+    .bankFields.map((f) => {
+      const value =
+        f.key === 'bankName'
+          ? [org.bankName, org.bankBranch].filter(Boolean).join(' — ')
+          : (org[f.key] ?? '');
+      return [f.label, String(value ?? '').trim()] as [string, string];
+    })
+    // The branch rides along with the bank name, so never on its own.
+    .filter(([label, v]) => v && label !== 'Branch');
 
   return `<!doctype html>
 <html lang="en">
@@ -430,9 +443,15 @@ export function renderDocumentHtml(model: DocumentModel): string {
           : ''
       }
       ${model.reference ? `<div><b>${esc(model.reference.label)}</b> ${esc(model.reference.value)}</div>` : ''}
-      <div><b>Place of supply</b> ${esc(
-        [party.state, party.stateCode].filter(Boolean).join(' — ') || org.state || '—',
-      )}</div>
+      ${
+        // Place of supply is an Indian GST concept — it decides CGST/SGST
+        // against IGST. On a US or NZ invoice it means nothing, so it is left off.
+        activeCountry().taxSystem === 'INDIA_GST'
+          ? `<div><b>Place of supply</b> ${esc(
+              [party.state, party.stateCode].filter(Boolean).join(' — ') || org.state || '—',
+            )}</div>`
+          : ''
+      }
     </div>
   </div>
 

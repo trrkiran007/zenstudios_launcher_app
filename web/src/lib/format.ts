@@ -45,6 +45,27 @@ export function useCountry(code?: string | null) {
 
 export const currencyCode = () => active.currency;
 
+/*
+ * The country's own words, for labels that are not amounts: a tax column is
+ * headed GST in India and Sales tax in the United States, and only India puts
+ * an HSN/SAC code on a line. Set from the profile once the app has loaded it.
+ */
+let words = { taxLabel: 'GST', itemCodeLabel: 'HSN/SAC', usesGstin: true };
+
+export function useCountryWords(w: Partial<typeof words>) {
+  words = { ...words, ...w };
+}
+
+export const taxLabel = () => words.taxLabel;
+export const itemCodeLabel = () => words.itemCodeLabel;
+export const usesGstin = () => words.usesGstin;
+
+/** Compact, with no currency symbol — for chart axes, which have no room. */
+export const numShort = (n: number | null | undefined) =>
+  new Intl.NumberFormat(active.locale, { notation: 'compact', maximumFractionDigits: 1 }).format(
+    Number(n ?? 0),
+  );
+
 export const money = (n: number | null | undefined) => full.format(Number(n ?? 0));
 export const moneyShort = (n: number | null | undefined) => compact.format(Number(n ?? 0));
 

@@ -317,6 +317,9 @@ function CompanyTab({
 /* --------------------------------- bank --------------------------------- */
 
 function BankTab({ org, onSaved }: { org: Organization; onSaved: () => Promise<void> }) {
+  const { countries } = useApp();
+  const bankFields =
+    countries.find((c) => c.code === (org.countryCode ?? 'IN'))?.bankFields ?? [];
   const { run, busy } = useAction();
   const [form, setForm] = useState<Organization>(org);
   useEffect(() => setForm(org), [org]);
@@ -337,24 +340,34 @@ function BankTab({ org, onSaved }: { org: Organization; onSaved: () => Promise<v
         actions={<Button variant="primary" icon={<Save className="size-4" />} loading={busy} onClick={save}>Save</Button>}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Account name">
-            <Input value={form.bankAccountName ?? ''} onChange={(e) => set('bankAccountName', e.target.value)} />
-          </Field>
-          <Field label="Bank">
-            <Input value={form.bankName ?? ''} onChange={(e) => set('bankName', e.target.value)} />
-          </Field>
-          <Field label="Branch">
-            <Input value={form.bankBranch ?? ''} onChange={(e) => set('bankBranch', e.target.value)} />
-          </Field>
-          <Field label="Account number">
-            <Input value={form.bankAccountNo ?? ''} onChange={(e) => set('bankAccountNo', e.target.value)} className="font-mono" />
-          </Field>
-          <Field label="IFSC">
-            <Input value={form.bankIfsc ?? ''} onChange={(e) => set('bankIfsc', e.target.value.toUpperCase())} className="font-mono" />
-          </Field>
-          <Field label="UPI ID">
-            <Input value={form.upiId ?? ''} onChange={(e) => set('upiId', e.target.value)} />
-          </Field>
+          {/*
+            * Built from the country's own list rather than hardcoded, so a US
+            * organisation is asked for a routing number and an account type
+            * and never for an IFSC.
+            */}
+          {bankFields.map((f) =>
+            f.options ? (
+              <Field key={f.key} label={f.label} hint={f.hint}>
+                <Select
+                  value={(form[f.key as keyof Organization] as string) ?? ''}
+                  onChange={(e) => set(f.key as keyof Organization, e.target.value)}
+                >
+                  <option value="">Select…</option>
+                  {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                </Select>
+              </Field>
+            ) : (
+              <Field key={f.key} label={f.label} hint={f.hint}>
+                <Input
+                  value={(form[f.key as keyof Organization] as string) ?? ''}
+                  onChange={(e) =>
+                    set(f.key as keyof Organization, f.upper ? e.target.value.toUpperCase() : e.target.value)
+                  }
+                  className={f.mono ? 'font-mono' : undefined}
+                />
+              </Field>
+            ),
+          )}
         </div>
       </Card>
 

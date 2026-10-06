@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from './api';
-import { useCountry } from './format';
+import { useCountry, useCountryWords } from './format';
 import type { BusinessType, CountryProfile, Organization, SystemInfo } from './types';
 
 type AppState = {
@@ -47,6 +47,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Before anything renders a figure, so nothing is briefly shown in rupees
       // for a business that does not work in rupees.
       useCountry(o.countryCode);
+      const profile = cn.find((c) => c.code === o.countryCode);
+      if (profile) {
+        useCountryWords({
+          taxLabel: profile.taxLabel,
+          itemCodeLabel: profile.itemCodeLabel,
+          usesGstin: profile.identifiers.includes('gstin'),
+        });
+      }
       setOrg(o);
       setBusinessTypes(bt);
       setSystem(sys);

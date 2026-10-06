@@ -25,6 +25,39 @@ export type TaxSystem =
 
 export type Region = { code: string; name: string };
 
+/**
+ * How a client in this country is told where to send the money.
+ *
+ * The details differ in kind, not just in name: India needs an IFSC and often
+ * a UPI id, the United States needs a routing number and whether the account
+ * is checking or savings, New Zealand encodes bank and branch inside the
+ * account number itself and needs neither. So each country lists the fields
+ * that apply, and the Settings form and the printed payment block are both
+ * built from that list.
+ */
+export type BankField = {
+  key:
+    | 'bankAccountName' | 'bankName' | 'bankBranch' | 'bankAccountNo'
+    | 'bankIfsc' | 'bankRouting' | 'bankAccountType' | 'bankSwift' | 'upiId';
+  label: string;
+  hint?: string;
+  /** Present for a field that is chosen rather than typed. */
+  options?: string[];
+  mono?: boolean;
+  upper?: boolean;
+};
+
+const ACCOUNT_NAME: BankField = { key: 'bankAccountName', label: 'Account name' };
+const BANK_NAME: BankField = { key: 'bankName', label: 'Bank' };
+const ACCOUNT_NO: BankField = { key: 'bankAccountNo', label: 'Account number', mono: true };
+const SWIFT: BankField = {
+  key: 'bankSwift',
+  label: 'SWIFT / BIC',
+  hint: 'Needed when a client abroad pays you by wire',
+  mono: true,
+  upper: true,
+};
+
 export type CountryProfile = {
   code: string;
   name: string;
@@ -53,6 +86,8 @@ export type CountryProfile = {
   suggestedFields: string[];
   /** Printed under the totals when selling to another country. */
   exportNote?: string;
+  /** The payment details that apply here, in the order they are shown and printed. */
+  bankFields: BankField[];
   /**
    * Round the invoice total to a whole unit and show the rounding.
    * Indian tax invoices do; a dollar invoice showing 1,204.00 should stay
@@ -117,6 +152,15 @@ export const COUNTRIES: CountryProfile[] = [
     suggestedFields: [],
     exportNote: 'Supply meant for export — zero-rated. Confirm with your accountant whether you are exporting under LUT without payment of IGST, or with payment and refund.',
     roundTotals: true,
+    bankFields: [
+      ACCOUNT_NAME,
+      BANK_NAME,
+      { key: 'bankBranch', label: 'Branch' },
+      ACCOUNT_NO,
+      { key: 'bankIfsc', label: 'IFSC', mono: true, upper: true },
+      { key: 'upiId', label: 'UPI ID' },
+      SWIFT,
+    ],
   },
   {
     code: 'US',
@@ -141,6 +185,23 @@ export const COUNTRIES: CountryProfile[] = [
     identifiers: [],
     suggestedFields: ['EIN', 'State registration no.'],
     roundTotals: false,
+    bankFields: [
+      ACCOUNT_NAME,
+      BANK_NAME,
+      ACCOUNT_NO,
+      {
+        key: 'bankAccountType',
+        label: 'Account type',
+        options: ['Checking', 'Savings', 'Business checking', 'Business savings'],
+      },
+      {
+        key: 'bankRouting',
+        label: 'Routing number (ABA)',
+        hint: 'Nine digits. Some banks use a different one for wires than for ACH — print the one you want paid on.',
+        mono: true,
+      },
+      SWIFT,
+    ],
   },
   {
     code: 'NZ',
@@ -161,6 +222,17 @@ export const COUNTRIES: CountryProfile[] = [
     identifiers: [],
     suggestedFields: ['NZBN', 'IRD number'],
     roundTotals: false,
+    bankFields: [
+      ACCOUNT_NAME,
+      BANK_NAME,
+      {
+        key: 'bankAccountNo',
+        label: 'Account number',
+        hint: 'BB-bbbb-AAAAAAA-SS — the bank and branch are already in it, so there is no separate code',
+        mono: true,
+      },
+      SWIFT,
+    ],
   },
 ];
 

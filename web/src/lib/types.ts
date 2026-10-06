@@ -29,6 +29,9 @@ export type Organization = {
   bankIfsc: string | null;
   bankBranch: string | null;
   upiId: string | null;
+  bankRouting: string | null;
+  bankAccountType: string | null;
+  bankSwift: string | null;
   defaultTerms: string | null;
   defaultInvoiceTerms: string | null;
   defaultValidityDays: number;
@@ -476,6 +479,14 @@ export type CountryProfile = {
   taxLabel: string;
   defaultTaxRate: number;
   itemCodeLabel: string;
+  bankFields: {
+    key: string;
+    label: string;
+    hint?: string;
+    options?: string[];
+    mono?: boolean;
+    upper?: boolean;
+  }[];
   identifiers: ('gstin' | 'cin' | 'pan' | 'tan')[];
   suggestedFields: string[];
   roundTotals: boolean;

@@ -10,6 +10,7 @@ import { api, useApi } from '../lib/api';
 import { useApp } from '../lib/app-context';
 import { date, dateInput, money } from '../lib/format';
 import type { Client, Invoice } from '../lib/types';
+import { taxLabel } from '../lib/format';
 
 const STATUS_TONE: Record<string, 'slate' | 'blue' | 'amber' | 'green' | 'red'> = {
   DRAFT: 'slate', ISSUED: 'blue', PARTIALLY_PAID: 'amber', PAID: 'green', CANCELLED: 'red',
@@ -248,7 +249,7 @@ export function Invoices() {
                   <Th>Unit</Th>
                   <Th align="right">Qty</Th>
                   <Th align="right">Rate</Th>
-                  <Th align="right">GST</Th>
+                  <Th align="right">{taxLabel()}</Th>
                   <Th align="right">Amount</Th>
                 </tr>
               </thead>
