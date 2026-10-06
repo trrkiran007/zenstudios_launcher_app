@@ -261,6 +261,25 @@ Back up the `data/` folder and you have backed up everything.
 
 ---
 
+## Giving the app to someone else
+
+The build is **arm64 only** and is **ad-hoc signed, not notarised**. It is signed deeply — every
+nested framework, helper and native module, then the bundle — which matters more than it sounds:
+with only the linker's own signature the bundle has no sealed resources, and macOS reports a
+transferred copy as *"damaged"* with no way past it. A consistent ad-hoc signature turns that into
+the ordinary unidentified-developer warning, which has one.
+
+So on another Mac: drag to Applications, then **right-click the app → Open → Open**. Once.
+
+If macOS still refuses, the copy carries a quarantine flag that can be cleared directly:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ZenStudios.app
+```
+
+Past a handful of installs this stops being reasonable. The durable fix is an Apple Developer ID
+and notarisation, after which the app simply opens.
+
 ## Sharing between machines — `.zns` files
 
 Each install has its own database, so setup and documents move as **`.zns` files** (JSON under the

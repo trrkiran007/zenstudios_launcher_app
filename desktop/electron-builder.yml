@@ -27,6 +27,10 @@ extraResources:
 
 asar: true
 
+# Ad-hoc signs the bundle so it does not read as "damaged" on another Mac.
+# See scripts/sign-adhoc.cjs for why the linker's own signature is not enough.
+afterPack: ./scripts/sign-adhoc.cjs
+
 # Double-clicking a .zns file (a shared quotation or a setup file) opens it in
 # ZenStudios. The contents are JSON; the extension is ours so Finder can route it.
 fileAssociations:
