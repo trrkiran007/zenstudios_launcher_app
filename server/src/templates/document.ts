@@ -171,7 +171,7 @@ function itemsTable(model: DocumentModel): string {
         <th class="c-desc">Description</th>
         ${showHsn && activeCountry().itemCodeLabel ? `<th class="c-hsn">${esc(activeCountry().itemCodeLabel)}</th>` : ''}
         ${detailed ? '<th class="c-unit">Unit</th><th class="c-num">Qty</th><th class="c-num">Rate</th>' : ''}
-        ${detailed && showTax ? '<th class="c-num">GST%</th>' : ''}
+        ${detailed && showTax ? `<th class="c-num">${esc(model.totals.treatment.label)}%</th>` : ''}
         ${showAmounts ? '<th class="c-num">Amount</th>' : ''}
       </tr>
     </thead>`;
