@@ -1,21 +1,32 @@
 /**
- * Add-only catalog sync.
+ * Add-only starter-data sync.
  *
  * Brings an existing database up to date with the shipped starter data:
- * creates any business type that is missing (with its pipeline and terms), and
- * adds catalog items that are not there yet.
+ * creates any line of business that is missing (with its pipeline, terms and
+ * specification tiers), and adds catalog items that are not there yet.
  *
  * It never edits or deletes anything that already exists. Rates, cost prices and
  * specifications you have corrected are left exactly as they are, so this is
  * safe to re-run after every update.
+ *
+ * The lines of business and their tiers run on every server start, because an
+ * install that updated from an earlier build has a database with no row for a
+ * line of business added since — and without it whole screens have nothing to
+ * show. The catalog does not: those items are the owner's to curate, and one
+ * deleted on purpose should stay deleted rather than return at every launch.
  */
 import { BUSINESS_TYPES, CATALOGS, SPEC_TIERS, type CatalogSeed } from './data/index.js';
 import { prisma } from './db.js';
 
 const key = (name: string, unit: string) => `${name.trim().toLowerCase()}|${unit.trim().toLowerCase()}`;
 
-async function main() {
-  console.log('\nSyncing starter data — existing records are never modified.\n');
+export async function syncStarterData(
+  { includeCatalog = true, quiet = false }: { includeCatalog?: boolean; quiet?: boolean } = {},
+) {
+  const log = (...args: unknown[]) => {
+    if (!quiet) console.log(...args);
+  };
+  log('\nSyncing starter data — existing records are never modified.\n');
 
   let typesAdded = 0;
   let itemsAdded = 0;
@@ -49,7 +60,7 @@ async function main() {
         },
       });
       typesAdded++;
-      console.log(`+ line of business: ${seed.name} (${seed.shortCode}) with ${seed.stages.length} stages`);
+      log(`+ line of business: ${seed.name} (${seed.shortCode}) with ${seed.stages.length} stages`);
     }
 
     // Specification tiers — add-only, like everything else here, so rates the
@@ -82,9 +93,11 @@ async function main() {
           })),
         });
         const by = (k: string) => missing.filter((t) => t.kind === k).length;
-        console.log(`\n  ${seed.name}: ${by('WOOD')} material, ${by('LAMINATE')} laminate, ${by('HARDWARE')} hardware tier(s) added`);
+        log(`\n  ${seed.name}: ${by('WOOD')} material, ${by('LAMINATE')} laminate, ${by('HARDWARE')} hardware tier(s) added`);
       }
     }
+
+    if (!includeCatalog) continue;
 
     const catalog: CatalogSeed[] = CATALOGS[seed.key] ?? [];
     if (!catalog.length) continue;
@@ -119,25 +132,19 @@ async function main() {
         acc[item.category] = (acc[item.category] ?? 0) + 1;
         return acc;
       }, {});
-      console.log(`\n  ${seed.name}: ${missing.length} new item(s), ${existing.length} left untouched`);
+      log(`\n  ${seed.name}: ${missing.length} new item(s), ${existing.length} left untouched`);
       for (const [category, count] of Object.entries(byCategory).sort((a, b) => b[1] - a[1])) {
-        console.log(`    ${String(count).padStart(3)}  ${category}`);
+        log(`    ${String(count).padStart(3)}  ${category}`);
       }
     } else {
-      console.log(`\n  ${seed.name}: already up to date (${existing.length} items)`);
+      log(`\n  ${seed.name}: already up to date (${existing.length} items)`);
     }
   }
 
-  const totals = await prisma.catalogItem.count();
-  console.log(
+  const totals = includeCatalog ? await prisma.catalogItem.count() : 0;
+  log(
     `\n✓ ${typesAdded} line(s) of business and ${itemsAdded} catalog item(s) added. ` +
       `${totals} items in the catalog now.\n`,
   );
+  return { typesAdded, itemsAdded };
 }
-
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
