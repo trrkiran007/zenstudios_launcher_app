@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import {
   app, BrowserWindow, dialog, Menu, shell, type MenuItemConstructorOptions,
 } from 'electron';
+import { reconcileSchema } from './schema.js';
 import { readSettings, writeSettings } from './settings.js';
 
 /**
@@ -67,15 +68,28 @@ let server: { url: string; close: () => Promise<void> } | null = null;
  * On first launch, copy the seeded template database into the data directory.
  * Shipping a prepared database avoids having to run Prisma's migration engine
  * inside a packaged app, which is the usual source of grief here.
+ *
+ * On every later launch, make sure the database that is already there has kept
+ * up with the code. A machine that installed an earlier build has its own
+ * database, full of real work, and nothing was upgrading it — so the first
+ * query against a newly added column failed and the app looked broken.
  */
 function ensureDataDir() {
   for (const dir of [DATA_DIR, UPLOAD_DIR, BRANDING_DIR]) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(DB_FILE)) {
-    if (!fs.existsSync(TEMPLATE_DB)) {
-      throw new Error(`Seed database missing at ${TEMPLATE_DB}. Run "npm run build:db" in desktop/.`);
-    }
-    fs.copyFileSync(TEMPLATE_DB, DB_FILE);
+
+  if (!fs.existsSync(TEMPLATE_DB)) {
+    throw new Error(`Seed database missing at ${TEMPLATE_DB}. Run "npm run build:db" in desktop/.`);
   }
+
+  if (!fs.existsSync(DB_FILE)) {
+    fs.copyFileSync(TEMPLATE_DB, DB_FILE);
+    return;
+  }
+
+  const { changes, skipped, backup } = reconcileSchema(DB_FILE, TEMPLATE_DB);
+  for (const change of changes) console.log(`  schema: added ${change.kind} ${change.what}`);
+  for (const note of skipped) console.warn(`  schema: left alone — ${note}`);
+  if (backup) console.log(`  schema: database copied to ${backup} first`);
 }
 
 /* ------------------------------ the server ------------------------------ */
@@ -300,7 +314,13 @@ async function resolveStartUrl(): Promise<string> {
     return settings.remoteUrl.trim().replace(/\/$/, '');
   }
 
-  ensureDataDir();
+  try {
+    ensureDataDir();
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    dialog.showErrorBox(`${PRODUCT_NAME} could not open your data`, detail);
+    throw err;
+  }
   server = await startEmbeddedServer();
   return server.url;
 }

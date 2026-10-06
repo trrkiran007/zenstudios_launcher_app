@@ -11,8 +11,8 @@
     "seed": "tsx src/seed.ts",
     "studio": "prisma studio",
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/server.mjs --packages=external",
-    "catalog:sync": "tsx src/sync.ts",
-    "catalog:sync:app": "cross-env DATABASE_URL=file:$HOME/Library/Application\\ Support/ZenStudios/data/app.db tsx src/sync.ts"
+    "catalog:sync": "tsx src/sync-cli.ts",
+    "catalog:sync:app": "tsx src/sync-cli.ts --app"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

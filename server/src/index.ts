@@ -5,6 +5,7 @@ import cors from 'cors';
 import express from 'express';
 import { IS_PROD, PORT, WEB_DIST } from './config.js';
 import { prisma } from './db.js';
+import { syncStarterData } from './sync.js';
 import { errorHandler } from './lib/http.js';
 import { closePdfEngine } from './lib/pdf.js';
 import { GST_STATES } from './lib/states.js';
@@ -52,10 +53,25 @@ export type RunningServer = { url: string; port: number; close: () => Promise<vo
  * Start the API. Port 0 asks the OS for a free port, which is what the desktop
  * app uses so it never collides with something already running on 4321.
  */
-export function startServer({
+export async function startServer({
   port = PORT,
   serveWeb = IS_PROD,
 }: { port?: number; serveWeb?: boolean } = {}): Promise<RunningServer> {
+  /*
+   * An install that updated from an earlier build has a database with no row
+   * for a line of business added since, and no specification tiers for it.
+   * This adds what is missing and touches nothing that is already there. The
+   * catalog is left out on purpose — see syncStarterData.
+   *
+   * A failure here is reported rather than fatal: a server that starts and
+   * explains itself is more use than one that refuses to.
+   */
+  try {
+    await syncStarterData({ includeCatalog: false, quiet: true });
+  } catch (err) {
+    console.error('Starter data could not be synced:', err instanceof Error ? err.message : err);
+  }
+
   const app = createApp({ serveWeb });
 
   return new Promise((resolve, reject) => {
