@@ -218,9 +218,17 @@ function itemsTable(model: DocumentModel): string {
   return `<table class="items">${head}<tbody>${body}</tbody></table>`;
 }
 
+/**
+ * The rate-wise breakup, which exists to show how a total splits across tax
+ * rates. With no tax on the document there is nothing to split: a row reading
+ * 0%, the taxable value, zero and zero only repeats the totals beside it. So
+ * it prints when there is tax and not otherwise — which is about the tax being
+ * zero, not about what was sold. A staffing invoice under Indian GST still
+ * gets one; a US services invoice at 0% does not.
+ */
 function taxBreakup(model: DocumentModel): string {
   const t = model.totals;
-  if (!model.showTax || !t.slabs.length) return '';
+  if (!model.showTax || !t.slabs.length || t.totalTax <= 0) return '';
   const split = t.treatment.splitCgstSgst;
   const rows = t.slabs
     .map(
@@ -271,7 +279,7 @@ function totalsBlock(model: DocumentModel): string {
   return `<table class="totals">
     ${row('Subtotal', formatMoney(t.subtotal))}
     ${t.discountAmount ? row('Discount', `− ${formatMoney(t.discountAmount)}`) : ''}
-    ${row('Taxable value', formatMoney(t.taxableValue))}
+    ${t.discountAmount || t.totalTax ? row('Taxable value', formatMoney(t.taxableValue)) : ''}
     ${t.taxLines.map((line) => row(esc(line.label), formatMoney(line.amount))).join('')}
     ${t.treatment.zeroRated ? row(esc(t.treatment.label), 'Zero-rated') : ''}
     ${t.roundOff ? row('Round off', formatMoney(t.roundOff)) : ''}
