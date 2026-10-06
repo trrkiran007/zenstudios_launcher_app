@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import { badRequest, h, notFound, parseDate } from '../lib/http.js';
-import { formatINR, round2 } from '../lib/money.js';
+import { formatMoney, round2 } from '../lib/money.js';
 import { nextNumber } from '../lib/numbering.js';
 import { htmlToPdf } from '../lib/pdf.js';
 import { computeTotals, lineAmount } from '../lib/totals.js';
@@ -87,11 +87,11 @@ const fullInclude = {
 /** Explicit override wins, else the client's state — matching the printed invoice. */
 async function totalsOf(input: z.infer<typeof invoiceSchema>) {
   const org = await getOrg();
-  const placeOfSupplyCode =
-    input.placeOfSupplyCode ??
-    (await prisma.client.findUnique({ where: { id: input.clientId }, select: { stateCode: true } }))
-      ?.stateCode ??
-    null;
+  const client = await prisma.client.findUnique({
+    where: { id: input.clientId },
+    select: { stateCode: true, countryCode: true },
+  });
+  const placeOfSupplyCode = input.placeOfSupplyCode ?? client?.stateCode ?? null;
 
   return computeTotals({
     sections: [{ items: input.items }],
@@ -100,7 +100,9 @@ async function totalsOf(input: z.infer<typeof invoiceSchema>) {
     discountType: input.discountType,
     discountValue: input.discountValue,
     supplierStateCode: org.stateCode,
+    supplierCountry: org.countryCode,
     placeOfSupplyCode,
+    placeOfSupplyCountry: client?.countryCode ?? null,
   });
 }
 
@@ -461,8 +463,8 @@ invoicesRouter.post(
 
     if (!input.allowOverInvoice && round2(b.invoicedTaxable + base) > round2(b.contractTaxable + 0.5)) {
       throw badRequest(
-        `That would invoice ${formatINR(b.invoicedTaxable + base)} against a contract of ${formatINR(b.contractTaxable)} — ` +
-          `${formatINR(b.remainingTaxable)} is left. Invoicing the same work twice also pays GST on it twice.`,
+        `That would invoice ${formatMoney(b.invoicedTaxable + base)} against a contract of ${formatMoney(b.contractTaxable)} — ` +
+          `${formatMoney(b.remainingTaxable)} is left. Invoicing the same work twice also pays GST on it twice.`,
       );
     }
 
@@ -498,7 +500,7 @@ invoicesRouter.post(
             (input.mode === 'REMAINING'
               ? `Balance against ${quote.number} — ${quote.title}`
               : `Progress claim against ${quote.number} — ${quote.title}`),
-          specNote: b.invoicedTaxable > 0 ? `Contract ${formatINR(b.contractTaxable)}, already invoiced ${formatINR(b.invoicedTaxable)}` : quote.title,
+          specNote: b.invoicedTaxable > 0 ? `Contract ${formatMoney(b.contractTaxable)}, already invoiced ${formatMoney(b.invoicedTaxable)}` : quote.title,
           hsnSac: quote.sections[0]?.items[0]?.hsnSac ?? null,
           unit: 'Lump sum',
           quantity: 1,
@@ -795,7 +797,9 @@ async function invoiceDocument(id: string): Promise<DocumentModel> {
     discountType: invoice.discountType,
     discountValue: invoice.discountValue,
     supplierStateCode: org.stateCode,
+    supplierCountry: org.countryCode,
     placeOfSupplyCode: invoice.placeOfSupplyCode || invoice.client.stateCode,
+    placeOfSupplyCountry: invoice.client.countryCode,
   });
 
   return {

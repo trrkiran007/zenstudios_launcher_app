@@ -1,42 +1,77 @@
-const inr = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+/*
+ * Money and dates follow the country the business is set up in.
+ *
+ * One install serves one business, so rather than pass a country code into
+ * every call the active one is held here and set once, from the organisation,
+ * when the app loads. Until then it is India — which is what every existing
+ * install is, so nothing flickers.
+ */
+type Formatting = { locale: string; currency: string };
 
-const inrCompact = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  notation: 'compact',
-  maximumFractionDigits: 1,
-});
+const FORMATTING: Record<string, Formatting> = {
+  IN: { locale: 'en-IN', currency: 'INR' },
+  US: { locale: 'en-US', currency: 'USD' },
+  NZ: { locale: 'en-NZ', currency: 'NZD' },
+};
 
-export const money = (n: number | null | undefined) => inr.format(Number(n ?? 0));
-export const moneyShort = (n: number | null | undefined) => inrCompact.format(Number(n ?? 0));
+let active: Formatting = FORMATTING.IN;
+let full = build();
+let compact = build('compact');
+let plain = buildPlain();
+
+function build(notation?: 'compact') {
+  return new Intl.NumberFormat(active.locale, {
+    style: 'currency',
+    currency: active.currency,
+    ...(notation === 'compact'
+      ? { notation, maximumFractionDigits: 1 }
+      : { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  });
+}
+
+function buildPlain() {
+  return new Intl.NumberFormat(active.locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+/** Called once the organisation is known, and again if its country changes. */
+export function useCountry(code?: string | null) {
+  const next = FORMATTING[(code ?? '').toUpperCase()] ?? FORMATTING.IN;
+  if (next === active) return;
+  active = next;
+  full = build();
+  compact = build('compact');
+  plain = buildPlain();
+}
+
+export const currencyCode = () => active.currency;
+
+export const money = (n: number | null | undefined) => full.format(Number(n ?? 0));
+export const moneyShort = (n: number | null | undefined) => compact.format(Number(n ?? 0));
 
 export const num = (n: number | null | undefined, dp = 2) =>
-  new Intl.NumberFormat('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: dp }).format(
-    Number(n ?? 0),
-  );
-
-export const pct = (n: number | null | undefined) => `${num(n, 1)}%`;
+  dp === 2
+    ? plain.format(Number(n ?? 0))
+    : new Intl.NumberFormat(active.locale, { minimumFractionDigits: 0, maximumFractionDigits: dp }).format(
+        Number(n ?? 0),
+      );
 
 export function date(v: string | Date | null | undefined) {
   if (!v) return '—';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return '—';
-  return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(d);
+  return new Intl.DateTimeFormat(active.locale, { day: '2-digit', month: 'short', year: 'numeric' }).format(d);
 }
 
 export function dateTime(v: string | Date | null | undefined) {
   if (!v) return '—';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return '—';
-  return new Intl.DateTimeFormat('en-IN', {
+  return new Intl.DateTimeFormat(active.locale, {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   }).format(d);
 }
+
+export const pct = (n: number | null | undefined) => `${num(n, 1)}%`;
 
 /** "3 days ago" / "in 2 days" for due dates and activity feeds. */
 export function relative(v: string | Date | null | undefined) {

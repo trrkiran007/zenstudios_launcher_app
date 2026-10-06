@@ -694,6 +694,60 @@ Two things are refused rather than done quietly:
   so and names the counts. Close or archive them first.
 - **General.** It is the fallback line and is always on.
 
+### The country you operate from
+
+**Settings → Company & documents → Country.**
+
+One choice decides a great deal: the currency every figure is shown in, the
+list of states or regions on an address, which statutory identifiers you are
+asked for, how tax is worked out, when your accounting year turns over, and
+whether an amount in words reads in lakh and crore or million and billion.
+
+| | India | United States | New Zealand |
+|---|---|---|---|
+| Currency | ₹ INR | $ USD | $ NZD |
+| Regions | 36 states with GST codes | 50 states, DC and Puerto Rico | 17 regions |
+| Postcode | PIN code | ZIP code | Postcode |
+| Identifiers | GSTIN, CIN, PAN, TAN | yours, under Other identifiers | yours, under Other identifiers |
+| Tax | CGST + SGST, or IGST | Sales tax, starting at 0% | GST 15% |
+| Year | April to March | January to December | April to March |
+| Amounts in words | lakh, crore | million, billion | million, billion |
+
+A fresh install picks the country of the Mac it is installed on, and falls back
+to India. Changing it later affects new documents and what you see on screen —
+it does not go back and recompute tax on anything already issued.
+
+Three countries are set up. Ask and more can be added; each is one entry in a
+list.
+
+### How tax is decided
+
+From **both** countries — yours and your client's — because that is what
+determines it:
+
+| You are in | Your client is in | What prints |
+|---|---|---|
+| India | the same Indian state | CGST + SGST |
+| India | a different Indian state | IGST |
+| India | another country | nothing — zero-rated, with an export note |
+| United States | United States | Sales tax at whatever rate the item carries |
+| New Zealand | New Zealand | GST |
+| anywhere | another country | nothing — zero-rated |
+
+So an Indian company invoicing a US client gets a clean export invoice with no
+GST on the face of it, and a US company invoicing a US client never sees an
+Indian tax line.
+
+Set the client's country on the client record. A client with no country is
+taken to be in your country, which is what every client created before this
+existed, and the common case besides.
+
+> **On the rates.** The app carries the mechanics and the ordinary headline
+> rate, not tax advice. US sales tax is set by state and often by city, and
+> most states do not tax professional services at all — so the United States
+> starts at 0% and you set what applies, per item. Check any rate with your
+> accountant.
+
 ### Other identifiers
 
 **Settings → Company & documents → Other identifiers.**

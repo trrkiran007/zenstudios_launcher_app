@@ -101,6 +101,9 @@ async function startEmbeddedServer() {
   // window chrome (the draggable title strip).
   process.env.ZEN_APP_VERSION = app.getVersion();
   process.env.ZEN_DESKTOP = '1';
+  // Only used when creating a brand-new organisation, so a first run in another
+  // country starts in that country's currency rather than in rupees.
+  process.env.ZEN_COUNTRY = app.getLocaleCountryCode() || '';
   process.env.DATABASE_URL = `file:${DB_FILE}`;
   process.env.NODE_ENV = 'production';
 

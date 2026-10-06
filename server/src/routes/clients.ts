@@ -21,6 +21,8 @@ const clientSchema = z.object({
   state: z.string().nullish(),
   stateCode: z.string().nullish(),
   pincode: z.string().nullish(),
+  /** Blank means the same country as the business, which is the common case. */
+  countryCode: z.string().length(2).toUpperCase().nullish(),
   notes: z.string().nullish(),
   archived: z.boolean().optional(),
 });

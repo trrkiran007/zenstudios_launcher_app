@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from './api';
-import type { BusinessType, Organization, SystemInfo } from './types';
+import { useCountry } from './format';
+import type { BusinessType, CountryProfile, Organization, SystemInfo } from './types';
 
 type AppState = {
   org: Organization | null;
   businessTypes: BusinessType[];
   system: SystemInfo | null;
   states: { code: string; name: string }[];
+  countries: CountryProfile[];
   units: string[];
   loading: boolean;
   error: string | null;
@@ -14,7 +16,7 @@ type AppState = {
 };
 
 const Ctx = createContext<AppState>({
-  org: null, businessTypes: [], system: null, states: [], units: [],
+  org: null, businessTypes: [], system: null, states: [], countries: [], units: [],
   loading: true, error: null, refresh: async () => {},
 });
 
@@ -25,6 +27,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([]);
   const [system, setSystem] = useState<SystemInfo | null>(null);
   const [states, setStates] = useState<{ code: string; name: string }[]>([]);
+  const [countries, setCountries] = useState<CountryProfile[]>([]);
   const [units, setUnits] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,17 +36,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const [o, bt, sys, st, un] = await Promise.all([
+      const [o, bt, sys, st, cn, un] = await Promise.all([
         api.get<Organization>('/settings/organization'),
         api.get<BusinessType[]>('/business-types?all=1'),
         api.get<SystemInfo>('/settings/system'),
         api.get<{ code: string; name: string }[]>('/meta/states'),
+        api.get<CountryProfile[]>('/meta/countries'),
         api.get<string[]>('/meta/units'),
       ]);
+      // Before anything renders a figure, so nothing is briefly shown in rupees
+      // for a business that does not work in rupees.
+      useCountry(o.countryCode);
       setOrg(o);
       setBusinessTypes(bt);
       setSystem(sys);
       setStates(st);
+      setCountries(cn);
       setUnits(un);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not reach the API server.');
@@ -57,7 +65,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ org, businessTypes, system, states, units, loading, error, refresh }),
+    () => ({ org, businessTypes, system, states, countries, units, loading, error, refresh }),
     [org, businessTypes, system, states, units, loading, error, refresh],
   );
 

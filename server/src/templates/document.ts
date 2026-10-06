@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { BRANDING_DIR } from '../config.js';
-import { amountInWords, formatINR, round2 } from '../lib/money.js';
+import { activeCountry, amountInWords, formatMoney, round2 } from '../lib/money.js';
 import type { Totals } from '../lib/totals.js';
 
 export type DocOrg = {
@@ -76,8 +76,8 @@ export type DocumentModel = {
   totals: Totals;
   showHsn: boolean;
   /**
-   * Print the tax breakdown. When false the document quotes the pre-GST figure
-   * and says GST is extra — used for client-facing quotations where the tax
+   * Print the tax breakdown. When false the document quotes the pre-tax figure
+   * and says tax is extra — used for client-facing quotations where the tax
    * line is a distraction. A tax invoice must never set this false.
    */
   showTax: boolean;
@@ -162,7 +162,7 @@ function itemsTable(model: DocumentModel): string {
       <tr>
         <th class="c-sn">#</th>
         <th class="c-desc">Description</th>
-        ${showHsn ? '<th class="c-hsn">HSN/SAC</th>' : ''}
+        ${showHsn && activeCountry().itemCodeLabel ? `<th class="c-hsn">${esc(activeCountry().itemCodeLabel)}</th>` : ''}
         ${detailed ? '<th class="c-unit">Unit</th><th class="c-num">Qty</th><th class="c-num">Rate</th>' : ''}
         ${detailed && showTax ? '<th class="c-num">GST%</th>' : ''}
         ${showAmounts ? '<th class="c-num">Amount</th>' : ''}
@@ -183,9 +183,9 @@ function itemsTable(model: DocumentModel): string {
             ${it.discountPct ? `<div class="item-spec">Line discount ${round2(it.discountPct)}%</div>` : ''}
           </td>
           ${showHsn ? `<td class="c-hsn">${esc(it.hsnSac || '—')}</td>` : ''}
-          ${detailed ? `<td class="c-unit">${esc(it.unit)}</td><td class="c-num">${qty(it.quantity)}</td><td class="c-num">${formatINR(it.rate)}</td>` : ''}
+          ${detailed ? `<td class="c-unit">${esc(it.unit)}</td><td class="c-num">${qty(it.quantity)}</td><td class="c-num">${formatMoney(it.rate)}</td>` : ''}
           ${detailed && showTax ? `<td class="c-num">${round2(it.gstRate)}%</td>` : ''}
-          ${showAmounts ? `<td class="c-num">${formatINR(it.amount)}</td>` : ''}
+          ${showAmounts ? `<td class="c-num">${formatMoney(it.amount)}</td>` : ''}
         </tr>`,
         )
         .join('');
@@ -199,7 +199,7 @@ function itemsTable(model: DocumentModel): string {
 
       const footer =
         model.showSectionTotals && model.sections.length > 1
-          ? `<tr class="section-total"><td colspan="${cols - 1}">${esc(section.name)} subtotal</td><td class="c-num">${formatINR(
+          ? `<tr class="section-total"><td colspan="${cols - 1}">${esc(section.name)} subtotal</td><td class="c-num">${formatMoney(
               sectionTotal,
             )}</td></tr>`
           : '';
@@ -214,17 +214,18 @@ function itemsTable(model: DocumentModel): string {
 function taxBreakup(model: DocumentModel): string {
   const t = model.totals;
   if (!model.showTax || !t.slabs.length) return '';
+  const split = t.treatment.splitCgstSgst;
   const rows = t.slabs
     .map(
       (s) => `<tr>
         <td>${round2(s.gstRate)}%</td>
-        <td class="c-num">${formatINR(s.taxableValue)}</td>
+        <td class="c-num">${formatMoney(s.taxableValue)}</td>
         ${
-          t.isIntraState
-            ? `<td class="c-num">${formatINR(s.cgst)}</td><td class="c-num">${formatINR(s.sgst)}</td>`
-            : `<td class="c-num" colspan="2">${formatINR(s.igst)}</td>`
+          split
+            ? `<td class="c-num">${formatMoney(s.cgst)}</td><td class="c-num">${formatMoney(s.sgst)}</td>`
+            : `<td class="c-num" colspan="2">${formatMoney(s.tax)}</td>`
         }
-        <td class="c-num">${formatINR(s.cgst + s.sgst + s.igst)}</td>
+        <td class="c-num">${formatMoney(s.tax)}</td>
       </tr>`,
     )
     .join('');
@@ -232,8 +233,10 @@ function taxBreakup(model: DocumentModel): string {
     <table class="tax-breakup">
       <thead>
         <tr>
-          <th>GST rate</th><th class="c-num">Taxable value</th>
-          ${t.isIntraState ? '<th class="c-num">CGST</th><th class="c-num">SGST</th>' : '<th class="c-num" colspan="2">IGST</th>'}
+          <th>${esc(t.treatment.label)} rate</th><th class="c-num">Taxable value</th>
+          ${split
+            ? `<th class="c-num">C${esc(t.treatment.label)}</th><th class="c-num">S${esc(t.treatment.label)}</th>`
+            : `<th class="c-num" colspan="2">${esc(t.treatment.kind === 'INDIA_INTER' ? 'I' + t.treatment.label : t.treatment.label)}</th>`}
           <th class="c-num">Total tax</th>
         </tr>
       </thead>
@@ -251,22 +254,23 @@ function totalsBlock(model: DocumentModel): string {
     // Pre-GST presentation. The headline figure is the taxable value, and the
     // document says so, so nobody can read it as the amount payable.
     return `<table class="totals">
-      ${row('Subtotal', formatINR(t.subtotal))}
-      ${t.discountAmount ? row('Discount', `− ${formatINR(t.discountAmount)}`) : ''}
-      ${row('<b>Total before GST</b>', `<b>${formatINR(t.taxableValue)}</b>`, 'grand')}
-      ${row('GST', 'Extra, as applicable')}
+      ${row('Subtotal', formatMoney(t.subtotal))}
+      ${t.discountAmount ? row('Discount', `− ${formatMoney(t.discountAmount)}`) : ''}
+      ${row(`<b>Total before ${esc(t.treatment.label)}</b>`, `<b>${formatMoney(t.taxableValue)}</b>`, 'grand')}
+      ${row(esc(t.treatment.label), 'Extra, as applicable')}
     </table>`;
   }
 
   return `<table class="totals">
-    ${row('Subtotal', formatINR(t.subtotal))}
-    ${t.discountAmount ? row('Discount', `− ${formatINR(t.discountAmount)}`) : ''}
-    ${row('Taxable value', formatINR(t.taxableValue))}
-    ${t.isIntraState ? row('CGST', formatINR(t.cgst)) + row('SGST', formatINR(t.sgst)) : row('IGST', formatINR(t.igst))}
-    ${t.roundOff ? row('Round off', formatINR(t.roundOff)) : ''}
-    ${row('<b>Grand total</b>', `<b>${formatINR(t.grandTotal)}</b>`, 'grand')}
-    ${model.amountPaid !== undefined ? row('Amount received', `− ${formatINR(model.amountPaid)}`) : ''}
-    ${balance !== null ? row('<b>Balance due</b>', `<b>${formatINR(balance)}</b>`, 'grand') : ''}
+    ${row('Subtotal', formatMoney(t.subtotal))}
+    ${t.discountAmount ? row('Discount', `− ${formatMoney(t.discountAmount)}`) : ''}
+    ${row('Taxable value', formatMoney(t.taxableValue))}
+    ${t.taxLines.map((line) => row(esc(line.label), formatMoney(line.amount))).join('')}
+    ${t.treatment.zeroRated ? row(esc(t.treatment.label), 'Zero-rated') : ''}
+    ${t.roundOff ? row('Round off', formatMoney(t.roundOff)) : ''}
+    ${row('<b>Grand total</b>', `<b>${formatMoney(t.grandTotal)}</b>`, 'grand')}
+    ${model.amountPaid !== undefined ? row('Amount received', `− ${formatMoney(model.amountPaid)}`) : ''}
+    ${balance !== null ? row('<b>Balance due</b>', `<b>${formatMoney(balance)}</b>`, 'grand') : ''}
   </table>`;
 }
 
@@ -448,7 +452,8 @@ export function renderDocumentHtml(model: DocumentModel): string {
   <div class="foot">
     <div class="foot-left">
       ${taxBreakup(model)}
-      <div class="words"><b>Amount in words:</b> ${esc(amountInWords(model.showTax ? model.totals.grandTotal : model.totals.taxableValue))}${model.showTax ? '' : ' (before GST)'}</div>
+      ${model.totals.treatment.note ? `<div class="words">${esc(model.totals.treatment.note)}</div>` : ''}
+      <div class="words"><b>Amount in words:</b> ${esc(amountInWords(model.showTax ? model.totals.grandTotal : model.totals.taxableValue))}${model.showTax ? '' : ` (before ${esc(model.totals.treatment.label)})`}</div>
       ${
         bankRows.length
           ? `<div class="block"><h4>Payment details</h4><table class="bank">${bankRows

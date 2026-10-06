@@ -79,17 +79,21 @@ const fullInclude = {
  * explicit override wins, otherwise the client's own state. Without this the
  * stored totals and the PDF could disagree on IGST vs CGST+SGST.
  */
+/** Where the supply lands: the explicit override, else the client's address. */
 async function placeOfSupplyFor(input: z.infer<typeof quotationSchema>) {
-  if (input.placeOfSupplyCode) return input.placeOfSupplyCode;
   const client = await prisma.client.findUnique({
     where: { id: input.clientId },
-    select: { stateCode: true },
+    select: { stateCode: true, countryCode: true },
   });
-  return client?.stateCode ?? null;
+  return {
+    code: input.placeOfSupplyCode ?? client?.stateCode ?? null,
+    country: client?.countryCode ?? null,
+  };
 }
 
 async function totalsFor(input: z.infer<typeof quotationSchema>) {
   const org = await getOrg();
+  const place = await placeOfSupplyFor(input);
   return computeTotals({
     sections: input.sections,
     taxMode: input.taxMode,
@@ -97,7 +101,9 @@ async function totalsFor(input: z.infer<typeof quotationSchema>) {
     discountType: input.discountType,
     discountValue: input.discountValue,
     supplierStateCode: org.stateCode,
-    placeOfSupplyCode: await placeOfSupplyFor(input),
+    supplierCountry: org.countryCode,
+    placeOfSupplyCode: place.code,
+    placeOfSupplyCountry: place.country,
   });
 }
 
@@ -142,7 +148,9 @@ export async function recalculateQuotation(id: string) {
     discountType: quote.discountType,
     discountValue: quote.discountValue,
     supplierStateCode: org.stateCode,
+    supplierCountry: org.countryCode,
     placeOfSupplyCode: quote.placeOfSupplyCode || quote.client.stateCode,
+    placeOfSupplyCountry: quote.client.countryCode,
   });
 
   await prisma.$transaction([
@@ -567,7 +575,9 @@ export async function quotationDocument(id: string): Promise<DocumentModel> {
     discountType: quote.discountType,
     discountValue: quote.discountValue,
     supplierStateCode: org.stateCode,
+    supplierCountry: org.countryCode,
     placeOfSupplyCode: quote.placeOfSupplyCode || quote.client.stateCode,
+    placeOfSupplyCountry: quote.client.countryCode,
   });
 
   return {

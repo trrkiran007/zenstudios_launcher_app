@@ -10,6 +10,8 @@ import { errorHandler } from './lib/http.js';
 import { closePdfEngine } from './lib/pdf.js';
 import { GST_STATES } from './lib/states.js';
 import { activityRouters } from './routes/index.js';
+import { COUNTRIES, countryProfile } from './data/countries.js';
+import { getOrg } from './routes/settings.js';
 
 /**
  * Re-exported because `src/index.ts` is the bundle entry: only what this file
@@ -27,7 +29,19 @@ export function createApp({ serveWeb = IS_PROD }: { serveWeb?: boolean } = {}) {
 
   const api = express.Router();
   api.get('/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
-  api.get('/meta/states', (_req, res) => res.json(GST_STATES));
+  /*
+   * Regions depend on the country: Indian states carry GST codes, US states
+   * carry their two-letter codes, and a country the app has no list for gets
+   * an empty array so the form falls back to free text.
+   */
+  api.get('/meta/states', async (req, res) => {
+    const code = typeof req.query.country === 'string' && req.query.country
+      ? req.query.country
+      : (await getOrg()).countryCode;
+    res.json(countryProfile(code).regions);
+  });
+
+  api.get('/meta/countries', (_req, res) => res.json(COUNTRIES));
   api.get('/meta/units', (_req, res) =>
     res.json(['Sq.ft', 'R.ft', 'Nos', 'Set', 'Lump sum', 'Sq.mt', 'Kg', 'Litre', 'Hour', 'Day', 'Month']),
   );

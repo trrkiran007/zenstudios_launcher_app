@@ -62,7 +62,7 @@ type Draft = {
 export function QuotationEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { org, units, states } = useApp();
+  const { org, units, states, countries } = useApp();
   const businessTypes = useActiveBusinessTypes();
   const { run, busy } = useAction();
 
@@ -239,9 +239,11 @@ export function QuotationEditor() {
             discountValue: draft.discountValue,
             supplierStateCode: org?.stateCode,
             placeOfSupplyCode: draft.placeOfSupplyCode || selectedClient?.stateCode,
+            seller: countries.find((c) => c.code === (org?.countryCode ?? 'IN')),
+            buyerCountry: selectedClient?.countryCode,
           })
         : null,
-    [draft, org, selectedClient],
+    [draft, org, selectedClient, countries],
   );
 
   if (loading || !draft || !totals) return <Loading />;

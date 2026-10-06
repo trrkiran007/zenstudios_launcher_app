@@ -16,6 +16,19 @@ Everything runs on your machine. The whole database is one file you can copy.
 > **Using the app day to day? Read the [User Guide](docs/USER-GUIDE.md).**
 > This file covers installation and how the thing is built.
 
+## Countries
+
+India, the United States and New Zealand are set up, chosen under
+**Settings → Company & documents**. The choice drives currency and locale,
+the region list, which statutory identifiers are asked for, the tax treatment,
+the accounting year and how amounts are written in words. Everything lives in
+`server/src/data/countries.ts`; adding a country is one entry.
+
+Tax is resolved from the seller's and the buyer's country together, in
+`server/src/lib/tax.ts` — selling across a border is zero-rated, India within
+India splits CGST/SGST or charges IGST, and everywhere else is a single tax
+line. The rates there are ordinary defaults, not tax advice.
+
 ## Getting started
 
 ```bash
