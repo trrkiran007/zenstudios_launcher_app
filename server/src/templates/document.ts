@@ -159,17 +159,26 @@ function partyBlock(p: DocParty): string {
 }
 
 function itemsTable(model: DocumentModel): string {
-  const { showHsn, showTax, priceDisplay } = model;
+  const { showTax, priceDisplay } = model;
   const detailed = priceDisplay === 'DETAILED';
   const showAmounts = priceDisplay !== 'SECTION_ONLY';
+  /*
+   * One decision for the item-code column, used by the heading, every row and
+   * the colspans alike. Deciding it twice is what went wrong before: the
+   * heading dropped the column for a country with no code label while the rows
+   * kept rendering an empty cell, so every heading sat one column to the left
+   * of its figures and the purple band stopped short of the table.
+   */
+  const itemCode = model.showHsn ? activeCountry().itemCodeLabel : '';
+  const showItemCode = Boolean(itemCode);
   const cols =
-    2 + (showHsn ? 1 : 0) + (detailed ? 3 : 0) + (detailed && showTax ? 1 : 0) + (showAmounts ? 1 : 0);
+    2 + (showItemCode ? 1 : 0) + (detailed ? 3 : 0) + (detailed && showTax ? 1 : 0) + (showAmounts ? 1 : 0);
   const head = `
     <thead>
       <tr>
         <th class="c-sn">#</th>
         <th class="c-desc">Description</th>
-        ${showHsn && activeCountry().itemCodeLabel ? `<th class="c-hsn">${esc(activeCountry().itemCodeLabel)}</th>` : ''}
+        ${showItemCode ? `<th class="c-hsn">${esc(itemCode)}</th>` : ''}
         ${detailed ? '<th class="c-unit">Unit</th><th class="c-num">Qty</th><th class="c-num">Rate</th>' : ''}
         ${detailed && showTax ? `<th class="c-num">${esc(model.totals.treatment.label)}%</th>` : ''}
         ${showAmounts ? '<th class="c-num">Amount</th>' : ''}
@@ -189,7 +198,7 @@ function itemsTable(model: DocumentModel): string {
             ${it.specNote ? `<div class="item-spec">${nl2br(it.specNote)}</div>` : ''}
             ${it.discountPct ? `<div class="item-spec">Line discount ${round2(it.discountPct)}%</div>` : ''}
           </td>
-          ${showHsn ? `<td class="c-hsn">${esc(it.hsnSac || '—')}</td>` : ''}
+          ${showItemCode ? `<td class="c-hsn">${esc(it.hsnSac || '—')}</td>` : ''}
           ${detailed ? `<td class="c-unit">${esc(it.unit)}</td><td class="c-num">${qty(it.quantity)}</td><td class="c-num">${formatMoney(it.rate)}</td>` : ''}
           ${detailed && showTax ? `<td class="c-num">${round2(it.gstRate)}%</td>` : ''}
           ${showAmounts ? `<td class="c-num">${formatMoney(it.amount)}</td>` : ''}
