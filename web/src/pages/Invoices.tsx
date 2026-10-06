@@ -1,10 +1,11 @@
-import { Download, IndianRupee, Printer, Receipt, Trash2 } from 'lucide-react';
+import { Download, Plus, Printer, Receipt, Trash2, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Badge, Button, Card, EmptyState, ErrorState, Field, Input, Loading, Modal,
   PageHeader, Select, Stat, Table, Tabs, Td, Textarea, Th, useAction,
 } from '../components/ui';
+import { NewInvoiceForm } from '../components/NewInvoiceForm';
 import { api, useApi } from '../lib/api';
 import { useApp } from '../lib/app-context';
 import { date, dateInput, money } from '../lib/format';
@@ -19,6 +20,7 @@ export function Invoices() {
   const { system } = useApp();
   const { run, busy } = useAction();
   const [tab, setTab] = useState<'ALL' | 'TAX' | 'PROFORMA'>('ALL');
+  const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(params.get('open'));
   const [payment, setPayment] = useState<{ date: string; amount: number; mode: string; reference: string } | null>(null);
 
@@ -58,6 +60,9 @@ export function Invoices() {
   return (
     <>
       <PageHeader title="Invoices & payments" subtitle="Proformas, tax invoices and what's still owed">
+        <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
+          New invoice
+        </Button>
         <Tabs
           value={tab}
           onChange={setTab}
@@ -84,7 +89,12 @@ export function Invoices() {
           <EmptyState
             icon={<Receipt className="size-10" />}
             title="No invoices yet"
-            description="Open an accepted quotation and choose “Raise invoice” to create a full or milestone invoice."
+            description="Raise one against an accepted quotation with “Raise invoice”, or start one here for work with no quotation behind it."
+            action={
+              <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
+                New invoice
+              </Button>
+            }
           />
         ) : (
           <Table>
@@ -143,6 +153,12 @@ export function Invoices() {
         )}
       </Card>
 
+      <NewInvoiceForm
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreated={() => void reload()}
+      />
+
       <Modal
         open={!!openId && !!detail}
         onClose={() => setOpenId(null)}
@@ -186,7 +202,7 @@ export function Invoices() {
               </Select>
               <Button
                 variant="primary"
-                icon={<IndianRupee className="size-4" />}
+                icon={<Wallet className="size-4" />}
                 onClick={() =>
                   setPayment({
                     date: dateInput(new Date()),

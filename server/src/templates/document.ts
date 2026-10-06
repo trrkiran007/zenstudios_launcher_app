@@ -62,6 +62,10 @@ export type DocSection = { name: string; notes?: string | null; items: DocItem[]
 
 export type DocumentModel = {
   kind: 'QUOTATION' | 'PROFORMA' | 'TAX_INVOICE';
+  /** What the line of business calls its agreement: Quotation, Statement of Work. */
+  agreementLabel?: string;
+  /** Accepted, Signed, Approved — the word on the signature block. */
+  agreementVerb?: string;
   title: string;
   number: string;
   date: Date;
@@ -278,8 +282,11 @@ export function renderDocumentHtml(model: DocumentModel): string {
   const { org, party } = model;
   const brand = org.brandColor || '#16A34A';
   const logo = logoDataUri(org);
+  // A quotation is whatever its line of business calls it — a Statement of
+  // Work for services, a Quotation for interiors. The client reads this word.
+  const agreement = model.agreementLabel?.trim() || 'Quotation';
   const heading =
-    model.kind === 'QUOTATION' ? 'Quotation' : model.kind === 'PROFORMA' ? 'Proforma Invoice' : 'Tax Invoice';
+    model.kind === 'QUOTATION' ? agreement : model.kind === 'PROFORMA' ? 'Proforma Invoice' : 'Tax Invoice';
 
   const orgAddress = [
     org.addressLine1,
@@ -431,7 +438,7 @@ export function renderDocumentHtml(model: DocumentModel): string {
 
   <div class="parties">
     <div class="card">
-      <h3>${model.kind === 'QUOTATION' ? 'Quotation for' : 'Bill to'}</h3>
+      <h3>${model.kind === 'QUOTATION' ? `${esc(agreement)} for` : 'Bill to'}</h3>
       <div class="pname">${esc(party.name)}</div>
       ${partyBlock(party)}
     </div>
@@ -474,7 +481,7 @@ export function renderDocumentHtml(model: DocumentModel): string {
     <div style="font-size:9px;color:var(--muted);max-width:80mm">
       ${
         model.kind === 'QUOTATION'
-          ? 'Accepted &amp; confirmed by client<div class="line">Signature / Date</div>'
+          ? `${esc(model.agreementVerb || 'Accepted')} &amp; confirmed by client<div class="line">Signature / Date</div>`
           : 'This is a computer-generated document.'
       }
     </div>

@@ -580,12 +580,18 @@ export async function quotationDocument(id: string): Promise<DocumentModel> {
     placeOfSupplyCountry: quote.client.countryCode,
   });
 
+  const bt = quote.businessType;
+  const runsOverAPeriod = bt?.agreementDates === 'PERIOD';
+
   return {
     kind: 'QUOTATION',
+    agreementLabel: bt?.agreementLabel,
+    agreementVerb: bt?.agreementVerb,
     title: quote.title,
     number: quote.number,
     date: quote.quoteDate,
-    secondaryDateLabel: 'Valid till',
+    // An offer expires; a statement of work runs until its end date.
+    secondaryDateLabel: runsOverAPeriod ? 'Through' : 'Valid till',
     secondaryDate: quote.validUntil,
     subject: quote.title,
     org,

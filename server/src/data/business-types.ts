@@ -22,6 +22,12 @@ export type BusinessTypeSeed = {
   stages: StageSeed[];
   /** Always available and never disableable — the fallback for work that fits no niche. */
   protected?: boolean;
+  /** What this line calls the agreement it signs before work starts. */
+  agreementLabel?: string;
+  /** The word for a client agreeing to it: Accepted, Signed, Approved. */
+  agreementVerb?: string;
+  /** VALIDITY — valid until a date. PERIOD — runs between two dates. */
+  agreementDates?: 'VALIDITY' | 'PERIOD';
 };
 
 const INTERIOR_TERMS = `1. This quotation is valid for 15 days from the date of issue.
@@ -83,6 +89,11 @@ export const BUSINESS_TYPES: BusinessTypeSeed[] = [
       'No rate card or specification required.',
     color: '#334155',
     order: 0,
+    // Services are not quoted and accepted, they are scoped and signed, and the
+    // document runs over a period rather than expiring on a date.
+    agreementLabel: 'Statement of Work',
+    agreementVerb: 'Signed',
+    agreementDates: 'PERIOD',
     enableBenchmark: false,
     protected: true,
     defaultTerms: GENERAL_TERMS,

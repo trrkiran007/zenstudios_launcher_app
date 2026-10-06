@@ -682,6 +682,40 @@ a staffing resource, a consulting day, a one-off service. It numbers as `GEN`, p
 under **Services Summary**, and has a short pipeline, so you can raise a quotation or an invoice
 without inventing a line of business for it.
 
+### What your agreement document is called
+
+**Settings → Lines of business → edit → Agreement document.**
+
+Interior work is quoted: you send a **Quotation**, the client **accepts** it,
+and it is **valid until** a date. Services usually are not. Staffing, time and
+material and fixed-bid work run on a **Statement of Work** or a **Contract**:
+the client **signs** it, and it runs **over a period** rather than expiring.
+
+Each line of business says which it is — the document name, the word for the
+client agreeing, and whether the date is an expiry or the end of a period. The
+name is what prints as the heading, so the client sees "STATEMENT OF WORK", and
+the signature block reads "Signed & confirmed by client".
+
+Underneath it is still one document type, so numbering, the editor, the PDF and
+the pipeline are the same everywhere. Only the words change.
+
+**General** ships as a Statement of Work, signed, over a period. The other
+lines stay quotations. Change any of them whenever you like.
+
+### Invoicing without a quotation
+
+**Invoices → New invoice.**
+
+Against a statement of work you invoice as the work is delivered — monthly for
+time and material, on milestones for fixed bid — and there is no quotation in
+between. This raises an invoice on its own: pick the client, add the lines,
+and reference the client's PO or SOW number so they can reconcile it.
+
+The quotation route is unchanged and is still the better one when there is a
+quotation: **Raise invoice** on an accepted quotation carries the lines across,
+tracks what has already been billed, and refuses to invoice past the contract
+value.
+
 ### Switching a line of business off
 
 Each line has a toggle. Switching one off hides it from the new-quotation picker and from the

@@ -403,6 +403,7 @@ function BankTab({ org, onSaved }: { org: Organization; onSaved: () => Promise<v
 const BLANK_TYPE = {
   key: '', name: '', shortCode: '', layout: 'SECTIONED' as const, sectionLabel: 'Section',
   description: '', color: '#16A34A', active: true, order: 99, enableBenchmark: false, defaultTerms: '',
+  agreementLabel: 'Quotation', agreementVerb: 'Accepted', agreementDates: 'VALIDITY' as const,
 };
 
 function BusinessTab({ types, onSaved }: { types: BusinessType[]; onSaved: () => Promise<void> }) {
@@ -480,6 +481,9 @@ function BusinessTab({ types, onSaved }: { types: BusinessType[]; onSaved: () =>
               <span>{bt._count?.quotations ?? 0} quotations</span>
               <span>{bt._count?.projects ?? 0} projects</span>
               <span>{bt._count?.catalogItems ?? 0} catalog items</span>
+              {bt.agreementLabel && bt.agreementLabel !== 'Quotation' && (
+                <span className="text-slate-600">{bt.agreementLabel}</span>
+              )}
               {bt.enableBenchmark && <span className="text-brand-700">benchmark enabled</span>}
             </div>
           </Card>
@@ -549,6 +553,34 @@ function BusinessTab({ types, onSaved }: { types: BusinessType[]; onSaved: () =>
             </Field>
             <Field label="Section label" hint="What a group is called — Room, Area, Phase, Group">
               <Input value={editing.sectionLabel ?? 'Section'} onChange={(e) => setEditing({ ...editing, sectionLabel: e.target.value })} />
+            </Field>
+            <Field
+              label="Agreement document"
+              hint="What you send a client before work starts — it prints as the heading"
+            >
+              <Input
+                value={editing.agreementLabel ?? 'Quotation'}
+                onChange={(e) => setEditing({ ...editing, agreementLabel: e.target.value })}
+                placeholder="Quotation / Statement of Work / Contract"
+              />
+            </Field>
+            <Field label="When the client agrees, it is…" hint="The word on the signature block and the status">
+              <Input
+                value={editing.agreementVerb ?? 'Accepted'}
+                onChange={(e) => setEditing({ ...editing, agreementVerb: e.target.value })}
+                placeholder="Accepted / Signed / Approved"
+              />
+            </Field>
+            <Field label="Dates">
+              <Select
+                value={editing.agreementDates ?? 'VALIDITY'}
+                onChange={(e) =>
+                  setEditing({ ...editing, agreementDates: e.target.value as 'VALIDITY' | 'PERIOD' })
+                }
+              >
+                <option value="VALIDITY">Valid until a date — an offer that expires</option>
+                <option value="PERIOD">Runs over a period — work delivered between two dates</option>
+              </Select>
             </Field>
             <Field label="Colour">
               <div className="flex gap-2">

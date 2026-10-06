@@ -1,5 +1,5 @@
 import {
-  AlertTriangle, ArrowRight, Boxes, FileText, IndianRupee, TrendingUp,
+  AlertTriangle, ArrowRight, Boxes, FileText, TrendingUp, Wallet,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -93,7 +93,7 @@ export function Dashboard() {
               : 'Nothing overdue'
           }
           tone={data.money.overdueCount ? 'bad' : 'default'}
-          icon={<IndianRupee className="size-4" />}
+          icon={<Wallet className="size-4" />}
         />
       </div>
 

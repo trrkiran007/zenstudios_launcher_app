@@ -47,6 +47,9 @@ export async function syncStarterData(
           order: seed.order,
           enableBenchmark: seed.enableBenchmark,
           protected: !!seed.protected,
+          agreementLabel: seed.agreementLabel ?? 'Quotation',
+          agreementVerb: seed.agreementVerb ?? 'Accepted',
+          agreementDates: seed.agreementDates ?? 'VALIDITY',
           defaultTerms: seed.defaultTerms,
           stages: {
             create: seed.stages.map((stage, order) => ({
@@ -61,6 +64,35 @@ export async function syncStarterData(
       });
       typesAdded++;
       log(`+ line of business: ${seed.name} (${seed.shortCode}) with ${seed.stages.length} stages`);
+    }
+
+    /*
+     * Agreement wording, for a line of business that already existed when the
+     * columns were added. Those rows were created with the column defaults —
+     * every line called its document a Quotation — so a seed that says
+     * otherwise is filling a blank, not overriding a choice. Once the wording
+     * differs from the default it is the owner's, and this leaves it alone.
+     */
+    if (seed.agreementLabel || seed.agreementVerb || seed.agreementDates) {
+      const untouched =
+        businessType.agreementLabel === 'Quotation' &&
+        businessType.agreementVerb === 'Accepted' &&
+        businessType.agreementDates === 'VALIDITY';
+      const wanted = {
+        agreementLabel: seed.agreementLabel ?? 'Quotation',
+        agreementVerb: seed.agreementVerb ?? 'Accepted',
+        agreementDates: seed.agreementDates ?? 'VALIDITY',
+      };
+      const differs = Object.entries(wanted).some(
+        ([k, v]) => businessType![k as keyof typeof wanted] !== v,
+      );
+      if (untouched && differs) {
+        businessType = await prisma.businessType.update({
+          where: { id: businessType.id },
+          data: wanted,
+        });
+        log(`  ${seed.name}: agreement document set to "${wanted.agreementLabel}"`);
+      }
     }
 
     // Specification tiers — add-only, like everything else here, so rates the

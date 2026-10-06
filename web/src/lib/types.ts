@@ -62,6 +62,11 @@ export type BusinessType = {
   enableBenchmark: boolean;
   defaultTerms: string | null;
   stages?: PipelineStage[];
+  /** What this line calls its agreement: Quotation, Statement of Work, Contract. */
+  agreementLabel: string;
+  /** Accepted, Signed, Approved. */
+  agreementVerb: string;
+  agreementDates: 'VALIDITY' | 'PERIOD';
   _count?: { quotations: number; projects: number; catalogItems: number };
 };
 
