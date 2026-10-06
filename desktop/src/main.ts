@@ -8,14 +8,39 @@ import {
 } from 'electron';
 import { readSettings, writeSettings } from './settings.js';
 
-// Set before any getPath('userData') call, so data lands in a folder named for
-// the product rather than the internal package name.
-app.setName('ZenStudios');
+/**
+ * What the application calls itself. Deliberately not the operating company's
+ * name: one install serves one business, and the business supplies its own
+ * name and logo through Settings.
+ */
+const PRODUCT_NAME = 'BOS';
+const VENDOR = 'BlueMount Software';
 
 const isDev = !app.isPackaged;
 
+/*
+ * Where data lives, decided before anything asks Electron for a path.
+ *
+ * getPath('userData') is derived from the application name, so renaming the
+ * product silently repoints the app at a new, empty folder and every quotation,
+ * rate card and autosaved draft appears to vanish. They are still on disk under
+ * the old name; the app simply stops looking there.
+ *
+ * So the folder is chosen explicitly and never follows the product name. An
+ * install that already has the original folder keeps using it — nothing is
+ * moved, because moving is the part that can go wrong — and a fresh install
+ * gets the current one.
+ */
+const SUPPORT = app.getPath('appData');
+const LEGACY_DIR = path.join(SUPPORT, 'ZenStudios');
+const CURRENT_DIR = path.join(SUPPORT, 'BlueMount BOS');
+const USER_DATA = fs.existsSync(LEGACY_DIR) ? LEGACY_DIR : CURRENT_DIR;
+
+app.setName(PRODUCT_NAME);
+app.setPath('userData', USER_DATA);
+
 /** Data lives outside the bundle so an app update never touches it. */
-const DATA_DIR = path.join(app.getPath('userData'), 'data');
+const DATA_DIR = path.join(USER_DATA, 'data');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 const BRANDING_DIR = path.join(DATA_DIR, 'branding');
 const DB_FILE = path.join(DATA_DIR, 'app.db');
@@ -158,7 +183,7 @@ async function renderPdfOnce(html: string): Promise<Buffer> {
 }
 
 async function renderPdfWithElectron(html: string): Promise<Buffer> {
-  if (quitting) throw new Error('ZenStudios is closing, so the PDF was not generated. Reopen the app and try again.');
+  if (quitting) throw new Error(`${PRODUCT_NAME} is closing, so the PDF was not generated. Reopen the app and try again.`);
 
   try {
     return await renderPdfOnce(html);
@@ -166,7 +191,7 @@ async function renderPdfWithElectron(html: string): Promise<Buffer> {
     // The render window can lose its renderer — most often because the app was
     // quitting or was force-stopped mid-render, which Electron reports as the
     // bare string "Connection closed." One clean retry covers the transient case.
-    if (quitting) throw new Error('ZenStudios is closing, so the PDF was not generated. Reopen the app and try again.');
+    if (quitting) throw new Error(`${PRODUCT_NAME} is closing, so the PDF was not generated. Reopen the app and try again.`);
     console.warn('[pdf] first attempt failed, retrying:', first);
 
     try {
@@ -175,7 +200,7 @@ async function renderPdfWithElectron(html: string): Promise<Buffer> {
       const detail = second instanceof Error ? second.message : String(second);
       throw new Error(
         `The PDF could not be generated (${detail}). This usually means the app was interrupted ` +
-          'mid-render. Reopen ZenStudios and try again — or use Print view and save as PDF.',
+          `mid-render. Reopen ${PRODUCT_NAME} and try again — or use Print view and save as PDF.`,
       );
     }
   }
@@ -215,7 +240,7 @@ async function openTransferFile(filePath: string) {
   const name = path.basename(filePath);
 
   if (!base || !mainWindow) {
-    dialog.showErrorBox('ZenStudios', `Could not open ${name} — the app is not connected to a server yet.`);
+    dialog.showErrorBox(PRODUCT_NAME, `Could not open ${name} — the app is not connected to a server yet.`);
     return;
   }
 
@@ -223,7 +248,7 @@ async function openTransferFile(filePath: string) {
   try {
     file = JSON.parse(fs.readFileSync(filePath, 'utf8'));
   } catch {
-    dialog.showErrorBox('ZenStudios', `${name} could not be read. It may be damaged or not a ZenStudios file.`);
+    dialog.showErrorBox(PRODUCT_NAME, `${name} could not be read. It may be damaged or not a ${PRODUCT_NAME} file.`);
     return;
   }
 
@@ -259,10 +284,10 @@ async function openTransferFile(filePath: string) {
         buttons: ['OK'],
       });
     } else {
-      dialog.showErrorBox('ZenStudios', `${name} is not a ZenStudios quotation or setup file.`);
+      dialog.showErrorBox(PRODUCT_NAME, `${name} is not a ${PRODUCT_NAME} quotation or setup file.`);
     }
   } catch (err) {
-    dialog.showErrorBox('ZenStudios', err instanceof Error ? err.message : `Could not open ${name}.`);
+    dialog.showErrorBox(PRODUCT_NAME, err instanceof Error ? err.message : `Could not open ${name}.`);
   }
 }
 
@@ -290,7 +315,7 @@ async function createWindow() {
     y: windowBounds?.y,
     minWidth: 1024,
     minHeight: 700,
-    title: 'ZenStudios',
+    title: PRODUCT_NAME,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 14, y: 12 },
     backgroundColor: '#f8fafc',
@@ -325,9 +350,9 @@ async function createWindow() {
     await mainWindow.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(
         `<body style="font:14px -apple-system;padding:40px;color:#111">
-           <h2>ZenStudios could not start</h2>
+           <h2>${PRODUCT_NAME} could not start</h2>
            <pre style="white-space:pre-wrap;color:#b91c1c">${message}</pre>
-           <p>Use <b>ZenStudios &rsaquo; Server…</b> to switch back to the local database,
+           <p>Use <b>${PRODUCT_NAME} &rsaquo; Server…</b> to switch back to the local database,
               or reveal the data folder from the same menu.</p>
          </body>`,
       )}`,
@@ -348,7 +373,7 @@ async function chooseServerMode() {
   const { response } = await dialog.showMessageBox({
     type: 'question',
     title: 'Server',
-    message: 'Where should ZenStudios read and write data?',
+    message: `Where should ${PRODUCT_NAME} read and write data?`,
     detail:
       `Currently: ${settings.mode === 'local' ? 'this Mac (local database)' : settings.remoteUrl}\n\n` +
       'Local keeps everything on this Mac — right for a single user.\n' +
@@ -372,7 +397,7 @@ async function chooseServerMode() {
       message: 'Enter the server address',
       detail:
         `Open ${file} and set "remoteUrl" to your server, for example ` +
-        'https://quotes.zenstudios.in — then reopen ZenStudios.',
+        `https://quotes.example.com — then reopen ${PRODUCT_NAME}.`,
       buttons: ['Reveal the file'],
     });
     shell.showItemInFolder(file);
@@ -388,8 +413,8 @@ function relaunch() {
 async function backupData() {
   const stamp = new Date().toISOString().slice(0, 10);
   const { filePath, canceled } = await dialog.showSaveDialog({
-    title: 'Back up ZenStudios data',
-    defaultPath: path.join(app.getPath('documents'), `zenstudios-backup-${stamp}.zip`),
+    title: `Back up ${PRODUCT_NAME} data`,
+    defaultPath: path.join(app.getPath('documents'), `bos-backup-${stamp}.zip`),
     filters: [{ name: 'Zip archive', extensions: ['zip'] }],
   });
   if (canceled || !filePath) return;
@@ -411,9 +436,9 @@ async function backupData() {
 function buildMenu() {
   const template: MenuItemConstructorOptions[] = [
     {
-      label: 'ZenStudios',
+      label: PRODUCT_NAME,
       submenu: [
-        { role: 'about', label: 'About ZenStudios' },
+        { role: 'about', label: `About ${PRODUCT_NAME}` },
         { type: 'separator' },
         { label: 'Server…', click: () => void chooseServerMode() },
         { label: 'Back up data…', click: () => void backupData() },
@@ -421,7 +446,7 @@ function buildMenu() {
         { type: 'separator' },
         { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
         { type: 'separator' },
-        { role: 'quit', label: 'Quit ZenStudios' },
+        { role: 'quit', label: `Quit ${PRODUCT_NAME}` },
       ],
     },
     {
@@ -482,6 +507,13 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    // The ⌘-About panel is the one place macOS itself shows who wrote the app.
+    app.setAboutPanelOptions({
+      applicationName: PRODUCT_NAME,
+      applicationVersion: app.getVersion(),
+      credits: `A product of ${VENDOR}`,
+      copyright: `© ${VENDOR}`,
+    });
     buildMenu();
     await createWindow();
     readyForFiles = true;

@@ -54,6 +54,8 @@ export type BusinessType = {
   description: string | null;
   color: string;
   active: boolean;
+  /** Always available; the Settings toggle refuses to switch it off. */
+  protected?: boolean;
   order: number;
   enableBenchmark: boolean;
   defaultTerms: string | null;
@@ -418,6 +420,7 @@ export type SystemInfo = {
 
 export type SpecTier = {
   id: string;
+  businessTypeId: string;
   kind: 'WOOD' | 'LAMINATE' | 'HARDWARE';
   key: string;
   name: string;
@@ -437,4 +440,12 @@ export type SpecTiers = {
   laminate: SpecTier[];
   hardware: SpecTier[];
   hardwareRates: Record<string, { rate: number; cost: number; label: string }>;
+};
+
+export type OrgCustomField = {
+  id: string;
+  label: string;
+  value: string | null;
+  onDocuments: boolean;
+  order: number;
 };

@@ -82,7 +82,7 @@ const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURL
 
 if (isDirectRun) {
   const running = await startServer();
-  console.log(`\n  ZenStudios API  →  ${running.url}/api`);
+  console.log(`\n  BOS API  →  ${running.url}/api`);
   if (IS_PROD && fs.existsSync(WEB_DIST)) console.log(`  App             →  ${running.url}\n`);
   else console.log('');
 

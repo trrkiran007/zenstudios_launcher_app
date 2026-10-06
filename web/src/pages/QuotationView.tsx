@@ -13,6 +13,7 @@ import { useApp } from '../lib/app-context';
 import { date, dateTime, money, num, pct } from '../lib/format';
 import { downloadFile, slug, stamp } from '../lib/transfer';
 import type { Invoice, Note, Project, Quotation } from '../lib/types';
+import { PRODUCT_NAME } from '../lib/product';
 
 const NEXT_STATUS: Record<string, { value: string; label: string }[]> = {
   DRAFT: [{ value: 'SENT', label: 'Mark as sent' }],
@@ -360,7 +361,7 @@ export function QuotationView() {
         open={sharing}
         onClose={() => setSharing(false)}
         title="Share this quotation as a file"
-        description="Creates a .zns file a colleague can open in their own copy of ZenStudios."
+        description={`Creates a .zns file a colleague can open in their own copy of ${PRODUCT_NAME}.`}
         footer={
           <>
             <Button onClick={() => setSharing(false)}>Cancel</Button>

@@ -1,8 +1,8 @@
 {
   "name": "zen-desktop",
-  "version": "1.10.4",
+  "version": "1.11.0",
   "private": true,
-  "description": "ZenStudios desktop shell",
+  "description": "BOS desktop shell",
   "main": "dist/main.cjs",
   "scripts": {
     "build:main": "esbuild src/main.ts --bundle --platform=node --format=cjs --target=node20 --external:electron --outfile=dist/main.cjs",
@@ -20,5 +20,5 @@
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2"
   },
-  "author": "OMHOME SERVICES PRIVATE LIMITED"
+  "author": "BlueMount Software"
 }

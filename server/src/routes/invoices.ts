@@ -7,7 +7,7 @@ import { nextNumber } from '../lib/numbering.js';
 import { htmlToPdf } from '../lib/pdf.js';
 import { computeTotals, lineAmount } from '../lib/totals.js';
 import { renderDocumentHtml, type DocumentModel } from '../templates/document.js';
-import { getOrg } from './settings.js';
+import { getOrg, printableCustomFields } from './settings.js';
 
 export const invoicesRouter = Router();
 
@@ -826,6 +826,7 @@ async function invoiceDocument(id: string): Promise<DocumentModel> {
     totals,
     // Not configurable: a tax invoice has to show the tax charged, and it must
     // itemise what is being billed.
+    customFields: await printableCustomFields(),
     showTax: true,
     priceDisplay: 'DETAILED' as const,
     showHsn: true,

@@ -2,7 +2,7 @@
   "name": "zenstudios-quotes",
   "version": "1.0.0",
   "private": true,
-  "description": "Quotation, project and margin management for ZenStudios (OMHome Services Pvt Ltd)",
+  "description": "BOS — quotation, project and margin management, by BlueMount Software",
   "workspaces": [
     "server",
     "web",

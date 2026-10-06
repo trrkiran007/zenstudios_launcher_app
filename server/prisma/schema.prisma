@@ -67,6 +67,9 @@ model BusinessType {
   description     String?
   color           String  @default("#16A34A")
   active          Boolean @default(true)
+  /// Always available; the Settings toggle refuses to switch it off. This is
+  /// the line that catches work belonging to no specialised category.
+  protected       Boolean @default(false)
   order           Int     @default(0)
   enableBenchmark Boolean @default(false)
   defaultTerms    String?
@@ -529,4 +532,21 @@ model SpecTier {
   quotationsLaminate Quotation[] @relation("QuotationLaminateTier")
 
   @@unique([businessTypeId, kind, key])
+}
+
+/// An organisation detail the app does not model natively.
+///
+/// Statutory identifiers differ by country — GSTIN, CIN, PAN and TAN are
+/// Indian, an EIN is American, and the next country will want something else
+/// again. Rather than growing a column per jurisdiction, anything extra lives
+/// here and prints when it has a value.
+model OrgCustomField {
+  id        String  @id @default(cuid())
+  label     String
+  value     String?
+  /// Print on quotations and invoices. Off for internal notes.
+  onDocuments Boolean @default(true)
+  order     Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

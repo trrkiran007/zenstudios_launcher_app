@@ -1,7 +1,7 @@
 electronVersion: 43.4.0
-appId: in.zenstudios.quotes
-productName: ZenStudios
-copyright: © OMHOME SERVICES PRIVATE LIMITED
+appId: software.bluemount.bos
+productName: BOS
+copyright: © BlueMount Software
 
 directories:
   output: release
@@ -32,11 +32,11 @@ asar: true
 afterPack: ./scripts/sign-adhoc.cjs
 
 # Double-clicking a .zns file (a shared quotation or a setup file) opens it in
-# ZenStudios. The contents are JSON; the extension is ours so Finder can route it.
+# BOS. The contents are JSON; the extension is ours so Finder can route it.
 fileAssociations:
   - ext: zns
-    name: ZenStudios file
-    description: ZenStudios quotation or setup file
+    name: BOS file
+    description: BOS quotation or setup file
     role: Editor
     rank: Owner
     mimeType: application/json
@@ -53,7 +53,7 @@ mac:
   hardenedRuntime: false
 
 dmg:
-  title: ZenStudios
+  title: BOS
   contents:
     - x: 140
       y: 200

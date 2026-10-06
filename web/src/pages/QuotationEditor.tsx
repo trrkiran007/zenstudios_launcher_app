@@ -67,8 +67,9 @@ export function QuotationEditor() {
   const { run, busy } = useAction();
 
   const { data: existing, loading } = useApi<Quotation>(id ? `/quotations/${id}` : null, [id]);
-  // Only interiors is tiered and there are fifteen rows, so fetch the lot.
-  const { data: tiers } = useApi<SpecTiers>('/spec-tiers');
+  // Fetched whole and narrowed below: only interiors is tiered today, and
+  // fifteen rows is not worth a round trip per line of business.
+  const { data: allTiers } = useApi<SpecTiers>('/spec-tiers');
   // Needed to re-price existing lines when the specification changes: a line
   // stores its rate, not the rule that produced it.
   const { data: catalog } = useApi<CatalogItem[]>('/catalog');
@@ -367,6 +368,20 @@ export function QuotationEditor() {
       [next[index], next[target]] = [next[target], next[index]];
       return { ...d, sections: next };
     });
+
+  /**
+   * Only the tiers belonging to this quotation's line of business.
+   *
+   * Without the filter the specification block appeared on every line —
+   * board grade and laminate on a procurement quotation, which have nothing
+   * to do with it.
+   */
+  const tiers = allTiers && {
+    ...allTiers,
+    wood: allTiers.wood.filter((t) => t.businessTypeId === draft.businessTypeId),
+    laminate: allTiers.laminate.filter((t) => t.businessTypeId === draft.businessTypeId),
+    hardware: allTiers.hardware.filter((t) => t.businessTypeId === draft.businessTypeId),
+  };
 
   const woodTier = tiers?.wood.find((t) => t.id === draft.woodTierId);
   const laminateTier = tiers?.laminate.find((t) => t.id === draft.laminateTierId);

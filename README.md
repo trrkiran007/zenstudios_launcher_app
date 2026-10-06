@@ -1,8 +1,13 @@
-# ZenStudios — Quotations, Projects & Margin
+# BOS — Quotations, Projects & Margin
 
-A local-first application for **OMHome Services Private Limited** (trading as ZenStudios) that
-generates GST-compliant quotations, tracks converted opportunities to delivery, and reports on
-where the money actually went.
+**BOS** (Business OS) is a local-first application by **BlueMount Software** that generates
+quotations, tracks converted opportunities to delivery, and reports on where the money actually
+went.
+
+One install serves one business. The application carries no customer's branding: the company
+name, logo, colour, address and statutory identifiers printed on documents are all supplied
+under **Settings**, and the only fixed identity is the attribution line — *A product of BlueMount
+Software* — shown in the sidebar and on **Settings → AI & system**.
 
 Everything runs on your machine. The whole database is one file you can copy.
 
@@ -31,7 +36,7 @@ business with their pipelines, and a 232-item starter catalog.
 npm run app:dist
 ```
 
-Produces `desktop/release/ZenStudios-1.0.0-arm64.dmg`. Install it, then open **ZenStudios** from
+Produces `desktop/release/BOS-<version>-arm64.dmg`. Install it, then open **BOS** from
 Applications — the API, the database and PDF generation all run inside the app, with no terminal.
 
 Because the build is not signed with an Apple certificate, macOS blocks it the first time:
@@ -54,12 +59,14 @@ npm run dev
 Open **http://localhost:5273**. The API runs alongside on port 4321.
 
 > The Mac app and the terminal version keep **separate databases** —
-> `~/Library/Application Support/ZenStudios/data` and `data/` respectively.
+> `~/Library/Application Support/BlueMount BOS/data` and `data/` respectively. An install that
+> already carries data under the older `ZenStudios` folder keeps reading and writing there —
+> renaming the product never moves or abandons a database.
 
 ### First five minutes
 
 1. **Settings → Company** — add your **GSTIN** (it was not supplied, so it is blank) and upload your
-   logo. Until the logo is uploaded, documents print a ZenStudios wordmark.
+   logo. Until the logo is uploaded, documents print your brand name as a wordmark.
 2. **Settings → Bank & terms** — add bank and UPI details so they appear on every document.
 3. **Rate card & products** — the starter catalog is a plausible guess. Correct the rates and,
    importantly, the **cost prices** — those are what make the margin figures real. If you already
@@ -247,7 +254,8 @@ Back up the `data/` folder and you have backed up everything.
 
 - The Express API starts **inside** the app's main process on an OS-assigned free port, so it never
   collides with anything already running.
-- Data lives in `~/Library/Application Support/ZenStudios/data`, outside the bundle, so an app update
+- Data lives in `~/Library/Application Support/BlueMount BOS/data` (or the older `ZenStudios`
+  folder, where one already exists), outside the bundle, so an app update
   never touches it.
 - On first launch a **pre-seeded template database** is copied into place. Preparing it at build time
   means the packaged app never has to run Prisma's migration engine.
@@ -256,7 +264,7 @@ Back up the `data/` folder and you have backed up everything.
 - The server's runtime dependencies are staged into `Resources/app/node_modules` (see
   `desktop/scripts/stage-runtime.mjs`), pruned of other platforms' Prisma engines and type
   declarations.
-- **ZenStudios → Server…** switches between the local database and a company server. That is the
+- **BOS → Server…** switches between the local database and a company server. That is the
   upgrade path: deploy this same server centrally and point the app at it.
 
 ---
@@ -274,7 +282,7 @@ So on another Mac: drag to Applications, then **right-click the app → Open →
 If macOS still refuses, the copy carries a quarantine flag that can be cleared directly:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/ZenStudios.app
+xattr -dr com.apple.quarantine /Applications/BOS.app
 ```
 
 Past a handful of installs this stops being reasonable. The durable fix is an Apple Developer ID

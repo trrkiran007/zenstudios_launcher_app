@@ -20,6 +20,8 @@ export type BusinessTypeSeed = {
   enableBenchmark: boolean;
   defaultTerms: string;
   stages: StageSeed[];
+  /** Always available and never disableable — the fallback for work that fits no niche. */
+  protected?: boolean;
 };
 
 const INTERIOR_TERMS = `1. This quotation is valid for 15 days from the date of issue.
@@ -62,7 +64,38 @@ const RETAIL_TERMS = `1. This quotation is valid for 30 days from the date of is
 11. Delivery timeline commences from written PO, approved artwork and receipt of advance, and assumes uninterrupted site access.
 12. Prices are subject to GST as applicable and shown separately. Disputes, if any, are subject to the jurisdiction of courts at Hyderabad, Telangana.`;
 
+
+const GENERAL_TERMS = `1. Payment due within 30 days of invoice date unless otherwise agreed in writing.
+2. Work is billed for the scope stated above. Any change in scope will be quoted separately.
+3. Please quote the invoice number on all remittances.
+4. Interest may be charged on amounts outstanding beyond the due date.`;
+
 export const BUSINESS_TYPES: BusinessTypeSeed[] = [
+  {
+    key: 'GENERAL',
+    name: 'General',
+    shortCode: 'GEN',
+    layout: 'FLAT',
+    // Prints as the heading above the lines, where "General" would read oddly.
+    sectionLabel: 'Services Summary',
+    description:
+      'Anything that does not belong to a specialised line — services, consulting, staffing, one-off supply. ' +
+      'No rate card or specification required.',
+    color: '#334155',
+    order: 0,
+    enableBenchmark: false,
+    protected: true,
+    defaultTerms: GENERAL_TERMS,
+    stages: [
+      { name: 'Enquiry', color: '#64748B' },
+      { name: 'Quoted', color: '#0EA5E9' },
+      { name: 'Accepted', color: '#6366F1' },
+      { name: 'In Progress', color: '#F59E0B' },
+      { name: 'Delivered', color: '#10B981' },
+      { name: 'Invoiced', color: '#16A34A' },
+      { name: 'Closed', color: '#64748B', isTerminal: true, isWon: true },
+    ],
+  },
   {
     key: 'INTERIOR',
     name: 'Interior Design',
@@ -139,4 +172,4 @@ export const INVOICE_TERMS = `1. Payment due within 15 days of invoice date unle
 4. Goods and services remain the property of OMHome Services Private Limited until paid for in full.
 5. Subject to Hyderabad, Telangana jurisdiction.`;
 
-export { INTERIOR_TERMS, B2B_TERMS, RETAIL_TERMS };
+export { GENERAL_TERMS, INTERIOR_TERMS, B2B_TERMS, RETAIL_TERMS };

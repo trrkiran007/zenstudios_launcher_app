@@ -114,7 +114,7 @@ transferRouter.post(
   h(async (req, res) => {
     const file = setupSchema.parse(req.body);
     if (file.version > FILE_VERSION) {
-      throw badRequest('This setup file was made by a newer version of ZenStudios. Update the app first.');
+      throw badRequest('This setup file was made by a newer version of the app. Update the app first.');
     }
 
     const applied = { organization: false, businessTypes: 0, stages: 0, catalogItems: 0, logo: false };
@@ -273,7 +273,7 @@ transferRouter.post(
   h(async (req, res) => {
     const file = quotationFileSchema.parse(req.body);
     if (file.version > FILE_VERSION) {
-      throw badRequest('This quotation file was made by a newer version of ZenStudios. Update the app first.');
+      throw badRequest('This quotation file was made by a newer version of the app. Update the app first.');
     }
 
     const businessType = await prisma.businessType.findUnique({ where: { key: file.businessTypeKey } });

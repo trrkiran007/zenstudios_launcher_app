@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { cx } from './ui';
+import { attribution, PRODUCT_NAME } from '../lib/product';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -26,7 +27,7 @@ const LIBRARY = [
 function Brand() {
   const { org } = useApp();
   const logo = org?.logoPath ? `/api/settings/organization/logo-file?v=${encodeURIComponent(org.logoPath)}` : null;
-  const brand = org?.brandName ?? 'ZenStudios';
+  const brand = org?.brandName ?? PRODUCT_NAME;
   const [first, ...rest] = brand.split(/(?=[A-Z])/);
 
   return (
@@ -95,7 +96,7 @@ export function Layout() {
       {system?.desktop && (
         <div className="app-drag flex h-9 shrink-0 items-center border-b border-slate-200 bg-slate-50 pl-20">
           <span className="text-[11px] font-medium text-slate-400 select-none">
-            {org?.brandName ?? 'ZenStudios'}
+            {org?.brandName ?? PRODUCT_NAME}
           </span>
         </div>
       )}
@@ -129,12 +130,14 @@ export function Layout() {
           <p className="mt-0.5 truncate text-[11px] text-slate-400">
             {org?.gstin ? `GSTIN ${org.gstin}` : 'GSTIN not set'}
           </p>
-          {system?.appVersion && (
-            <p className="mt-1.5 text-[10px] text-slate-400">
-              Version {system.appVersion}
-              {system.desktop ? '' : ' · browser'}
-            </p>
-          )}
+          {/*
+            * Who built the software, not who is using it. Read-only on purpose:
+            * the business edits its own name and logo above, never this line.
+            */}
+          <p className="mt-1.5 text-[10px] leading-snug text-slate-400 select-none">
+            {attribution(system?.appVersion)}
+            {system && !system.desktop ? ' · browser' : ''}
+          </p>
         </div>
       </aside>
 
@@ -143,7 +146,7 @@ export function Layout() {
           <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100">
             <Menu className="size-5" />
           </button>
-          <span className="text-sm font-semibold">{org?.brandName ?? 'ZenStudios'}</span>
+          <span className="text-sm font-semibold">{org?.brandName ?? PRODUCT_NAME}</span>
         </header>
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
