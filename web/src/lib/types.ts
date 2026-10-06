@@ -14,6 +14,8 @@ export type Organization = {
   stateCode: string | null;
   pincode: string | null;
   country: string;
+  /** ISO code: decides currency, regions, tax and the accounting year. */
+  countryCode: string;
   email: string | null;
   phone: string | null;
   altPhone: string | null;
@@ -27,6 +29,9 @@ export type Organization = {
   bankIfsc: string | null;
   bankBranch: string | null;
   upiId: string | null;
+  bankRouting: string | null;
+  bankAccountType: string | null;
+  bankSwift: string | null;
   defaultTerms: string | null;
   defaultInvoiceTerms: string | null;
   defaultValidityDays: number;
@@ -60,6 +65,11 @@ export type BusinessType = {
   enableBenchmark: boolean;
   defaultTerms: string | null;
   stages?: PipelineStage[];
+  /** What this line calls its agreement: Quotation, Statement of Work, Contract. */
+  agreementLabel: string;
+  /** Accepted, Signed, Approved. */
+  agreementVerb: string;
+  agreementDates: 'VALIDITY' | 'PERIOD';
   _count?: { quotations: number; projects: number; catalogItems: number };
 };
 
@@ -79,6 +89,8 @@ export type Client = {
   state: string | null;
   stateCode: string | null;
   pincode: string | null;
+  /** Blank means the same country as the business. */
+  countryCode: string | null;
   notes: string | null;
   archived: boolean;
   _count?: { quotations: number; projects: number; invoices: number };
@@ -448,4 +460,43 @@ export type OrgCustomField = {
   value: string | null;
   onDocuments: boolean;
   order: number;
+};
+
+/** A country the app knows how to invoice from. Served by /meta/countries. */
+export type CountryProfile = {
+  code: string;
+  name: string;
+  currency: string;
+  currencyName: string;
+  currencySubName: string;
+  locale: string;
+  wordScale: 'indian' | 'western';
+  yearStartMonth: number;
+  regionLabel: string;
+  regions: { code: string; name: string }[];
+  postcodeLabel: string;
+  taxSystem: 'INDIA_GST' | 'SINGLE' | 'NONE';
+  taxLabel: string;
+  defaultTaxRate: number;
+  itemCodeLabel: string;
+  bankFields: {
+    key: string;
+    label: string;
+    hint?: string;
+    options?: string[];
+    mono?: boolean;
+    upper?: boolean;
+  }[];
+  identifiers: ('gstin' | 'cin' | 'pan' | 'tan')[];
+  suggestedFields: string[];
+  roundTotals: boolean;
+  exportNote?: string;
+};
+
+export type TaxTreatment = {
+  kind: 'INDIA_INTRA' | 'INDIA_INTER' | 'SINGLE' | 'EXPORT' | 'NONE';
+  label: string;
+  splitCgstSgst: boolean;
+  zeroRated: boolean;
+  note?: string;
 };

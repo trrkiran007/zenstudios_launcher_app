@@ -17,6 +17,14 @@ const btSchema = z.object({
   protected: z.boolean().optional(),
   order: z.coerce.number().int().default(0),
   enableBenchmark: z.boolean().default(false),
+  /*
+   * What this line calls the agreement it signs with a client before work
+   * starts, and how that agreement behaves. Interiors quote and are accepted;
+   * services are scoped in a statement of work and signed.
+   */
+  agreementLabel: z.string().min(2).max(40).default('Quotation'),
+  agreementVerb: z.string().min(2).max(20).default('Accepted'),
+  agreementDates: z.enum(['VALIDITY', 'PERIOD']).default('VALIDITY'),
   defaultTerms: z.string().nullish(),
 });
 

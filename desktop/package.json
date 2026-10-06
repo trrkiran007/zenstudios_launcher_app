@@ -1,6 +1,6 @@
 {
   "name": "zen-desktop",
-  "version": "1.11.2",
+  "version": "1.14.0",
   "private": true,
   "description": "BOS desktop shell",
   "main": "dist/main.cjs",

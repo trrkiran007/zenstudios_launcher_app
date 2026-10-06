@@ -9,6 +9,7 @@ import { api, useApi } from '../lib/api';
 import { useActiveBusinessTypes, useApp } from '../lib/app-context';
 import { money, pct } from '../lib/format';
 import type { CatalogItem } from '../lib/types';
+import { itemCodeLabel, taxLabel } from '../lib/format';
 
 const BLANK: Partial<CatalogItem> = {
   name: '', sku: '', brand: '', category: '', unit: 'Nos',
@@ -161,7 +162,7 @@ export function Catalog() {
                 <Th align="right">Rate</Th>
                 <Th align="right">Cost</Th>
                 <Th align="right">Margin</Th>
-                <Th align="right">GST</Th>
+                <Th align="right">{taxLabel()}</Th>
                 <Th />
               </tr>
             </thead>
@@ -244,10 +245,10 @@ export function Catalog() {
             <Field label="Cost price" hint="Never shown to the client">
               <Input type="number" step="0.01" value={editing.costPrice ?? 0} onChange={(e) => setEditing({ ...editing, costPrice: Number(e.target.value) })} />
             </Field>
-            <Field label="HSN / SAC">
+            <Field label={itemCodeLabel() || "Item code"}>
               <Input value={editing.hsnSac ?? ''} onChange={(e) => setEditing({ ...editing, hsnSac: e.target.value })} />
             </Field>
-            <Field label="GST rate (%)">
+            <Field label={`${taxLabel()} rate (%)`}>
               <Input type="number" step="0.5" value={editing.gstRate ?? 18} onChange={(e) => setEditing({ ...editing, gstRate: Number(e.target.value) })} />
             </Field>
             <Field label="Specification note" hint="Carries into the quotation line" className="sm:col-span-2">

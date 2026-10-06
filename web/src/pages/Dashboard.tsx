@@ -1,5 +1,5 @@
 import {
-  AlertTriangle, ArrowRight, Boxes, FileText, IndianRupee, TrendingUp,
+  AlertTriangle, ArrowRight, Boxes, FileText, TrendingUp, Wallet,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -9,7 +9,7 @@ import {
 import { Badge, Card, ErrorState, Loading, PageHeader, Stat } from '../components/ui';
 import { useApi } from '../lib/api';
 import { useApp } from '../lib/app-context';
-import { money, moneyShort, num, pct } from '../lib/format';
+import { money, moneyShort, num, numShort, pct } from '../lib/format';
 import type { Dashboard as DashboardData, Task } from '../lib/types';
 
 const monthLabel = (key: string) => {
@@ -93,7 +93,7 @@ export function Dashboard() {
               : 'Nothing overdue'
           }
           tone={data.money.overdueCount ? 'bad' : 'default'}
-          icon={<IndianRupee className="size-4" />}
+          icon={<Wallet className="size-4" />}
         />
       </div>
 
@@ -122,7 +122,7 @@ export function Dashboard() {
                   tick={{ fontSize: 11, fill: '#64748B' }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => moneyShort(v).replace('₹', '')}
+                  tickFormatter={(v) => numShort(v)}
                 />
                 <Tooltip content={<ChartTooltip />} />
                 <Area type="monotone" dataKey="invoiced" name="Invoiced" stroke="#16A34A" strokeWidth={2} fill="url(#gInv)" />
@@ -178,7 +178,7 @@ export function Dashboard() {
                 <BarChart data={data.pipelineByStage} margin={{ left: -18, right: 6, top: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
                   <XAxis dataKey="stage" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} interval={0} angle={-16} textAnchor="end" height={54} />
-                  <YAxis tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} tickFormatter={(v) => moneyShort(v).replace('₹', '')} />
+                  <YAxis tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} tickFormatter={(v) => numShort(v)} />
                   <Tooltip content={<ChartTooltip />} cursor={{ fill: '#F1F5F9' }} />
                   <Bar dataKey="value" name="Value" radius={[5, 5, 0, 0]}>
                     {data.pipelineByStage.map((s, i) => (

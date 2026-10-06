@@ -4,10 +4,12 @@ import { api, useApi } from '../lib/api';
 import { useApp } from '../lib/app-context';
 import type { Client } from '../lib/types';
 import { Button, Field, Input, Modal, Select, Textarea, useAction } from './ui';
+import { usesGstin } from '../lib/format';
 
 const EMPTY = {
   name: '', kind: 'COMPANY' as const, contactPerson: '', email: '', phone: '', gstin: '',
-  addressLine1: '', addressLine2: '', city: '', state: '', stateCode: '', pincode: '', notes: '',
+  addressLine1: '', addressLine2: '', city: '', state: '', stateCode: '', pincode: '',
+  countryCode: '', notes: '',
 };
 
 /** Create-a-client dialog, reused by the quotation editor and the Clients page. */
@@ -19,7 +21,7 @@ export function ClientForm({
   onSaved: (client: Client) => void;
   initial?: Client | null;
 }) {
-  const { states } = useApp();
+  const { countries, org } = useApp();
   const { run, busy } = useAction();
   const [form, setForm] = useState(() => ({ ...EMPTY, ...(initial ?? {}) }) as any);
 
@@ -32,8 +34,17 @@ export function ClientForm({
 
   const set = (k: string, v: unknown) => setForm((f: any) => ({ ...f, [k]: v }));
 
+  /*
+   * A client with no country is in the same country as the business — which is
+   * every client record that predates this field, and the common case anyway.
+   * Setting a different one makes the sale an export, and the tax follows.
+   */
+  const home = org?.countryCode ?? 'IN';
+  const profile = countries.find((c) => c.code === (form.countryCode || home)) ?? countries[0];
+  const regions = profile?.regions ?? [];
+
   const onStateChange = (code: string) => {
-    const match = states.find((s) => s.code === code);
+    const match = regions.find((r) => r.code === code);
     setForm((f: any) => ({ ...f, stateCode: code, state: match?.name ?? '' }));
   };
 
@@ -56,7 +67,9 @@ export function ClientForm({
       onClose={onClose}
       wide
       title={initial?.id ? 'Edit client' : 'New client'}
-      description="The GSTIN's first two digits set the place of supply, which decides CGST+SGST vs IGST."
+      description={usesGstin()
+        ? "The GSTIN's first two digits set the place of supply, which decides CGST+SGST vs IGST."
+        : "The country decides whether a sale to this client is domestic or an export."}
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -83,28 +96,33 @@ export function ClientForm({
           <Input type="email" value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} />
         </Field>
         <Field label="Phone">
-          <Input value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="+91 …" />
+          <Input value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="Phone" />
         </Field>
-        <Field label="GSTIN" hint="Leave blank for unregistered clients">
-          <Input
-            value={form.gstin ?? ''}
-            onChange={(e) => {
-              const gstin = e.target.value.toUpperCase();
-              const code = gstin.slice(0, 2);
-              setForm((f: any) => ({
-                ...f,
-                gstin,
-                ...(/^\d{2}$/.test(code)
-                  ? { stateCode: code, state: states.find((s) => s.code === code)?.name ?? f.state }
-                  : {}),
-              }));
-            }}
-            placeholder="36AAECO9870D1Z5"
-          />
-        </Field>
-        <Field label="PAN">
-          <Input value={form.pan ?? ''} onChange={(e) => set('pan', e.target.value.toUpperCase())} />
-        </Field>
+        {/* GSTIN and PAN are Indian; a US or NZ client has neither. */}
+        {usesGstin() && (
+          <>
+            <Field label="GSTIN" hint="Leave blank for unregistered clients">
+              <Input
+                value={form.gstin ?? ''}
+                onChange={(e) => {
+                  const gstin = e.target.value.toUpperCase();
+                  const code = gstin.slice(0, 2);
+                  setForm((f: any) => ({
+                    ...f,
+                    gstin,
+                    ...(/^\d{2}$/.test(code)
+                      ? { stateCode: code, state: regions.find((r) => r.code === code)?.name ?? f.state }
+                      : {}),
+                  }));
+                }}
+                placeholder="36AAECO9870D1Z5"
+              />
+            </Field>
+            <Field label="PAN">
+              <Input value={form.pan ?? ''} onChange={(e) => set('pan', e.target.value.toUpperCase())} />
+            </Field>
+          </>
+        )}
         <Field label="Address line 1" className="sm:col-span-2">
           <Input value={form.addressLine1 ?? ''} onChange={(e) => set('addressLine1', e.target.value)} />
         </Field>
@@ -114,15 +132,40 @@ export function ClientForm({
         <Field label="City">
           <Input value={form.city ?? ''} onChange={(e) => set('city', e.target.value)} />
         </Field>
-        <Field label="State">
-          <Select value={form.stateCode ?? ''} onChange={(e) => onStateChange(e.target.value)}>
-            <option value="">Select state…</option>
-            {states.map((s) => (
-              <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
+        <Field
+          label="Country"
+          hint={
+            form.countryCode && form.countryCode !== home
+              ? 'A different country to yours — invoices to this client are treated as exports'
+              : undefined
+          }
+        >
+          <Select
+            value={form.countryCode || home}
+            onChange={(e) =>
+              setForm((f: any) => ({ ...f, countryCode: e.target.value, state: '', stateCode: '' }))
+            }
+          >
+            {countries.map((c) => (
+              <option key={c.code} value={c.code}>{c.name}</option>
             ))}
           </Select>
         </Field>
-        <Field label="PIN code">
+        <Field label={profile?.regionLabel ?? 'State'}>
+          {regions.length > 0 ? (
+            <Select value={form.stateCode ?? ''} onChange={(e) => onStateChange(e.target.value)}>
+              <option value="">Select {(profile?.regionLabel ?? 'state').toLowerCase()}…</option>
+              {regions.map((r) => (
+                <option key={r.code} value={r.code}>
+                  {r.code === r.name ? r.name : `${r.code} — ${r.name}`}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Input value={form.state ?? ''} onChange={(e) => set('state', e.target.value)} />
+          )}
+        </Field>
+        <Field label={profile?.postcodeLabel ?? 'PIN code'}>
           <Input value={form.pincode ?? ''} onChange={(e) => set('pincode', e.target.value)} />
         </Field>
         <Field label="Notes" className="sm:col-span-2">

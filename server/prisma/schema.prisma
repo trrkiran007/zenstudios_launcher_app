@@ -30,6 +30,13 @@ model Organization {
   stateCode     String?
   pincode       String?
   country       String  @default("India")
+  /**
+   * ISO code of the country the business operates from. It decides the
+   * currency, the regions offered, which statutory identifiers apply, how tax
+   * is worked out and when the accounting year turns over. Existing databases
+   * default to India, which is what they already were.
+   */
+  countryCode   String  @default("IN")
   email         String?
   phone         String?
   altPhone      String?
@@ -45,6 +52,15 @@ model Organization {
   bankIfsc        String?
   bankBranch      String?
   upiId           String?
+  /*
+   * The rest of the world's payment details. Which of these apply is decided
+   * by the country profile, not by the schema — a US client needs a routing
+   * number and to know whether the account is checking or savings, and an
+   * overseas payer needs a SWIFT code wherever the account is.
+   */
+  bankRouting     String?
+  bankAccountType String?
+  bankSwift       String?
 
   defaultTerms        String?
   defaultInvoiceTerms String?
@@ -69,6 +85,20 @@ model BusinessType {
   active          Boolean @default(true)
   /// Always available; the Settings toggle refuses to switch it off. This is
   /// the line that catches work belonging to no specialised category.
+  /*
+   * What this line of business calls the priced agreement it signs with a
+   * client before work starts, and how that agreement behaves.
+   *
+   * For interiors it is a quotation: the client accepts it, and it is valid
+   * until a date. For staffing or a fixed-bid project it is a Statement of
+   * Work: the client signs it, and it runs over a period. Same record either
+   * way — only one document type, so numbering, the editor, the PDF and the
+   * pipeline stay single.
+   */
+  agreementLabel String @default("Quotation")
+  agreementVerb  String @default("Accepted")
+  /// VALIDITY (valid until a date) | PERIOD (runs from one date to another)
+  agreementDates String @default("VALIDITY")
   protected       Boolean @default(false)
   order           Int     @default(0)
   enableBenchmark Boolean @default(false)
@@ -114,6 +144,8 @@ model Client {
   state         String?
   stateCode     String?
   pincode       String?
+  /** ISO code. Empty means the same country as the business — see lib/tax.ts. */
+  countryCode   String?
   notes         String?
   archived      Boolean @default(false)
   createdAt     DateTime @default(now())
@@ -164,6 +196,8 @@ model Quotation {
   status         String  @default("DRAFT") // DRAFT | SENT | ACCEPTED | REJECTED | EXPIRED | SUPERSEDED
   quoteDate      DateTime @default(now())
   validUntil     DateTime?
+  /// Start of the period of performance, for a line of business that runs on one.
+  startDate      DateTime?
 
   taxMode            String  @default("FULL_GST") // FULL_GST | FLAT
   // Print the tax breakdown, or quote the pre-GST figure with GST noted as extra.

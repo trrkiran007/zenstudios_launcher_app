@@ -35,7 +35,7 @@ export function Settings() {
         />
       </PageHeader>
 
-      {tab === 'company' && <CompanyTab org={org} states={states} onSaved={refresh} />}
+      {tab === 'company' && <CompanyTab org={org} onSaved={refresh} />}
       {tab === 'bank' && <BankTab org={org} onSaved={refresh} />}
       {tab === 'business' && <BusinessTab types={businessTypes} onSaved={refresh} />}
       {tab === 'transfer' && <TransferTab org={org} onSaved={refresh} />}
@@ -47,14 +47,29 @@ export function Settings() {
 /* ------------------------------- company -------------------------------- */
 
 function CompanyTab({
-  org, states, onSaved,
-}: { org: Organization; states: { code: string; name: string }[]; onSaved: () => Promise<void> }) {
+  org, onSaved,
+}: { org: Organization; onSaved: () => Promise<void> }) {
   const { run, busy } = useAction();
+  const { countries } = useApp();
   const [form, setForm] = useState<Organization>(org);
   const [logoKey, setLogoKey] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setForm(org), [org]);
+
+  /*
+   * Everything country-dependent on this tab reads from the profile for
+   * whatever is currently picked in the form, not from the saved organisation.
+   * Choosing New Zealand should rearrange the form at once, before saving.
+   */
+  const profile =
+    countries.find((c) => c.code === (form.countryCode ?? 'IN')) ??
+    countries[0] ?? {
+      code: 'IN', name: 'India', regionLabel: 'State', regions: [], postcodeLabel: 'PIN code',
+      taxSystem: 'INDIA_GST' as const, identifiers: ['gstin', 'cin', 'pan', 'tan'] as const,
+      suggestedFields: [] as string[], currency: 'INR',
+    };
+  const regions = profile.regions ?? [];
 
   const set = (k: keyof Organization, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -164,32 +179,53 @@ function CompanyTab({
         </div>
       </Card>
 
-      <Card title="Statutory identifiers" subtitle="Printed on every document">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="GSTIN"
-            required
-            hint={form.gstin ? undefined : 'Required on tax invoices. The first two digits must be your state code.'}
-            error={!form.gstin ? 'Not set — tax invoices will print without a GSTIN' : undefined}
-          >
-            <Input
-              value={form.gstin ?? ''}
-              onChange={(e) => set('gstin', e.target.value.toUpperCase())}
-              placeholder="36AAECO9870D1Z…"
-              className="font-mono"
-            />
-          </Field>
-          <Field label="CIN">
-            <Input value={form.cin ?? ''} onChange={(e) => set('cin', e.target.value.toUpperCase())} className="font-mono" />
-          </Field>
-          <Field label="PAN">
-            <Input value={form.pan ?? ''} onChange={(e) => set('pan', e.target.value.toUpperCase())} className="font-mono" />
-          </Field>
-          <Field label="TAN">
-            <Input value={form.tan ?? ''} onChange={(e) => set('tan', e.target.value.toUpperCase())} className="font-mono" />
-          </Field>
-        </div>
-      </Card>
+      {profile.identifiers.length > 0 && (
+        <Card title="Statutory identifiers" subtitle={`Printed on every document · ${profile.name}`}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {profile.identifiers.includes('gstin') && (
+              <Field
+                label="GSTIN"
+                required
+                hint={form.gstin ? undefined : 'Required on tax invoices. The first two digits must be your state code.'}
+                error={!form.gstin ? 'Not set — tax invoices will print without a GSTIN' : undefined}
+              >
+                <Input
+                  value={form.gstin ?? ''}
+                  onChange={(e) => set('gstin', e.target.value.toUpperCase())}
+                  placeholder="36AAECO9870D1Z…"
+                  className="font-mono"
+                />
+              </Field>
+            )}
+            {profile.identifiers.includes('cin') && (
+              <Field label="CIN">
+                <Input value={form.cin ?? ''} onChange={(e) => set('cin', e.target.value.toUpperCase())} className="font-mono" />
+              </Field>
+            )}
+            {profile.identifiers.includes('pan') && (
+              <Field label="PAN">
+                <Input value={form.pan ?? ''} onChange={(e) => set('pan', e.target.value.toUpperCase())} className="font-mono" />
+              </Field>
+            )}
+            {profile.identifiers.includes('tan') && (
+              <Field label="TAN">
+                <Input value={form.tan ?? ''} onChange={(e) => set('tan', e.target.value.toUpperCase())} className="font-mono" />
+              </Field>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {profile.identifiers.length === 0 && (
+        <Card title="Statutory identifiers" subtitle={profile.name}>
+          <p className="text-sm text-slate-600">
+            GSTIN, CIN, PAN and TAN are Indian and do not apply to a {profile.name} entity.
+            {profile.suggestedFields.length > 0 && (
+              <> Add what does — {profile.suggestedFields.join(', ')} — under <b>Other identifiers</b> below.</>
+            )}
+          </p>
+        </Card>
+      )}
 
       <CustomFields />
 
@@ -207,21 +243,60 @@ function CompanyTab({
           <Field label="City">
             <Input value={form.city ?? ''} onChange={(e) => set('city', e.target.value)} />
           </Field>
-          <Field label="State" hint="Sets your place of supply for the CGST/SGST vs IGST split">
+          <Field
+            label="Country"
+            className="sm:col-span-2"
+            hint={`Sets the currency, the ${profile.regionLabel.toLowerCase()} list, which identifiers apply, how tax is worked out and when your accounting year turns over`}
+          >
             <Select
-              value={form.stateCode ?? ''}
+              value={form.countryCode ?? 'IN'}
               onChange={(e) => {
-                const match = states.find((s) => s.code === e.target.value);
-                setForm((f) => ({ ...f, stateCode: e.target.value, state: match?.name ?? '' }));
+                // The regions belong to the old country, so clear them rather
+                // than leave a Telangana code on a New Zealand address.
+                setForm((f) => ({
+                  ...f,
+                  countryCode: e.target.value,
+                  state: '',
+                  stateCode: '',
+                  country: countries.find((c) => c.code === e.target.value)?.name ?? f.country,
+                }));
               }}
             >
-              <option value="">Select state…</option>
-              {states.map((s) => (
-                <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
+              {countries.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name} — {c.currency}
+                </option>
               ))}
             </Select>
           </Field>
-          <Field label="PIN code">
+          <Field
+            label={profile.regionLabel}
+            hint={
+              profile.taxSystem === 'INDIA_GST'
+                ? 'Sets your place of supply for the CGST/SGST vs IGST split'
+                : undefined
+            }
+          >
+            {regions.length > 0 ? (
+              <Select
+                value={form.stateCode ?? ''}
+                onChange={(e) => {
+                  const match = regions.find((r) => r.code === e.target.value);
+                  setForm((f) => ({ ...f, stateCode: e.target.value, state: match?.name ?? '' }));
+                }}
+              >
+                <option value="">Select {profile.regionLabel.toLowerCase()}…</option>
+                {regions.map((r) => (
+                  <option key={r.code} value={r.code}>
+                    {r.code === r.name ? r.name : `${r.code} — ${r.name}`}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <Input value={form.state ?? ''} onChange={(e) => set('state', e.target.value)} />
+            )}
+          </Field>
+          <Field label={profile.postcodeLabel}>
             <Input value={form.pincode ?? ''} onChange={(e) => set('pincode', e.target.value)} />
           </Field>
           <Field label="Email">
@@ -242,6 +317,9 @@ function CompanyTab({
 /* --------------------------------- bank --------------------------------- */
 
 function BankTab({ org, onSaved }: { org: Organization; onSaved: () => Promise<void> }) {
+  const { countries } = useApp();
+  const bankFields =
+    countries.find((c) => c.code === (org.countryCode ?? 'IN'))?.bankFields ?? [];
   const { run, busy } = useAction();
   const [form, setForm] = useState<Organization>(org);
   useEffect(() => setForm(org), [org]);
@@ -262,24 +340,34 @@ function BankTab({ org, onSaved }: { org: Organization; onSaved: () => Promise<v
         actions={<Button variant="primary" icon={<Save className="size-4" />} loading={busy} onClick={save}>Save</Button>}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Account name">
-            <Input value={form.bankAccountName ?? ''} onChange={(e) => set('bankAccountName', e.target.value)} />
-          </Field>
-          <Field label="Bank">
-            <Input value={form.bankName ?? ''} onChange={(e) => set('bankName', e.target.value)} />
-          </Field>
-          <Field label="Branch">
-            <Input value={form.bankBranch ?? ''} onChange={(e) => set('bankBranch', e.target.value)} />
-          </Field>
-          <Field label="Account number">
-            <Input value={form.bankAccountNo ?? ''} onChange={(e) => set('bankAccountNo', e.target.value)} className="font-mono" />
-          </Field>
-          <Field label="IFSC">
-            <Input value={form.bankIfsc ?? ''} onChange={(e) => set('bankIfsc', e.target.value.toUpperCase())} className="font-mono" />
-          </Field>
-          <Field label="UPI ID">
-            <Input value={form.upiId ?? ''} onChange={(e) => set('upiId', e.target.value)} />
-          </Field>
+          {/*
+            * Built from the country's own list rather than hardcoded, so a US
+            * organisation is asked for a routing number and an account type
+            * and never for an IFSC.
+            */}
+          {bankFields.map((f) =>
+            f.options ? (
+              <Field key={f.key} label={f.label} hint={f.hint}>
+                <Select
+                  value={(form[f.key as keyof Organization] as string) ?? ''}
+                  onChange={(e) => set(f.key as keyof Organization, e.target.value)}
+                >
+                  <option value="">Select…</option>
+                  {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                </Select>
+              </Field>
+            ) : (
+              <Field key={f.key} label={f.label} hint={f.hint}>
+                <Input
+                  value={(form[f.key as keyof Organization] as string) ?? ''}
+                  onChange={(e) =>
+                    set(f.key as keyof Organization, f.upper ? e.target.value.toUpperCase() : e.target.value)
+                  }
+                  className={f.mono ? 'font-mono' : undefined}
+                />
+              </Field>
+            ),
+          )}
         </div>
       </Card>
 
@@ -328,6 +416,7 @@ function BankTab({ org, onSaved }: { org: Organization; onSaved: () => Promise<v
 const BLANK_TYPE = {
   key: '', name: '', shortCode: '', layout: 'SECTIONED' as const, sectionLabel: 'Section',
   description: '', color: '#16A34A', active: true, order: 99, enableBenchmark: false, defaultTerms: '',
+  agreementLabel: 'Quotation', agreementVerb: 'Accepted', agreementDates: 'VALIDITY' as const,
 };
 
 function BusinessTab({ types, onSaved }: { types: BusinessType[]; onSaved: () => Promise<void> }) {
@@ -405,6 +494,9 @@ function BusinessTab({ types, onSaved }: { types: BusinessType[]; onSaved: () =>
               <span>{bt._count?.quotations ?? 0} quotations</span>
               <span>{bt._count?.projects ?? 0} projects</span>
               <span>{bt._count?.catalogItems ?? 0} catalog items</span>
+              {bt.agreementLabel && bt.agreementLabel !== 'Quotation' && (
+                <span className="text-slate-600">{bt.agreementLabel}</span>
+              )}
               {bt.enableBenchmark && <span className="text-brand-700">benchmark enabled</span>}
             </div>
           </Card>
@@ -474,6 +566,34 @@ function BusinessTab({ types, onSaved }: { types: BusinessType[]; onSaved: () =>
             </Field>
             <Field label="Section label" hint="What a group is called — Room, Area, Phase, Group">
               <Input value={editing.sectionLabel ?? 'Section'} onChange={(e) => setEditing({ ...editing, sectionLabel: e.target.value })} />
+            </Field>
+            <Field
+              label="Agreement document"
+              hint="What you send a client before work starts — it prints as the heading"
+            >
+              <Input
+                value={editing.agreementLabel ?? 'Quotation'}
+                onChange={(e) => setEditing({ ...editing, agreementLabel: e.target.value })}
+                placeholder="Quotation / Statement of Work / Contract"
+              />
+            </Field>
+            <Field label="When the client agrees, it is…" hint="The word on the signature block and the status">
+              <Input
+                value={editing.agreementVerb ?? 'Accepted'}
+                onChange={(e) => setEditing({ ...editing, agreementVerb: e.target.value })}
+                placeholder="Accepted / Signed / Approved"
+              />
+            </Field>
+            <Field label="Dates">
+              <Select
+                value={editing.agreementDates ?? 'VALIDITY'}
+                onChange={(e) =>
+                  setEditing({ ...editing, agreementDates: e.target.value as 'VALIDITY' | 'PERIOD' })
+                }
+              >
+                <option value="VALIDITY">Valid until a date — an offer that expires</option>
+                <option value="PERIOD">Runs over a period — work delivered between two dates</option>
+              </Select>
             </Field>
             <Field label="Colour">
               <div className="flex gap-2">

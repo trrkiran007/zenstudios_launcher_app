@@ -7,6 +7,7 @@ import {
 } from '../components/ui';
 import { api, useApi } from '../lib/api';
 import type { Client } from '../lib/types';
+import { usesGstin } from '../lib/format';
 
 export function Clients() {
   const [q, setQ] = useState('');
@@ -46,7 +47,7 @@ export function Clients() {
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-3">
           <div className="relative min-w-[220px] flex-1">
             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-            <Input placeholder="Search name, GSTIN, phone, city…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
+            <Input placeholder={usesGstin() ? "Search name, GSTIN, phone, city…" : "Search name, phone, city…"} value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
           </div>
           <Button variant={showArchived ? 'primary' : 'secondary'} onClick={() => setShowArchived((a) => !a)}>
             {showArchived ? 'Including archived' : 'Show archived'}
@@ -61,7 +62,9 @@ export function Clients() {
           <EmptyState
             icon={<Building2 className="size-10" />}
             title="No clients yet"
-            description="Add the companies and individuals you quote for. Their GSTIN drives the CGST/SGST vs IGST split automatically."
+            description={usesGstin()
+              ? "Add the companies and individuals you quote for. Their GSTIN drives the CGST/SGST vs IGST split automatically."
+              : "Add the companies and individuals you invoice. Their country decides whether a sale is domestic or an export."}
             action={<Button variant="primary" onClick={() => setCreating(true)}>Add a client</Button>}
           />
         ) : (
@@ -71,7 +74,7 @@ export function Clients() {
                 <Th>Name</Th>
                 <Th>Contact</Th>
                 <Th>Location</Th>
-                <Th>GSTIN</Th>
+                {usesGstin() && <Th>GSTIN</Th>}
                 <Th align="center">Quotes</Th>
                 <Th align="center">Projects</Th>
                 <Th />
@@ -96,7 +99,11 @@ export function Clients() {
                     <p className="text-xs text-slate-500">{[c.phone, c.email].filter(Boolean).join(' · ') || '—'}</p>
                   </Td>
                   <Td>{[c.city, c.state].filter(Boolean).join(', ') || '—'}</Td>
-                  <Td className="font-mono text-xs">{c.gstin || <span className="text-slate-400">Unregistered</span>}</Td>
+                  {usesGstin() && (
+                    <Td className="font-mono text-xs">
+                      {c.gstin || <span className="text-slate-400">Unregistered</span>}
+                    </Td>
+                  )}
                   <Td align="center">{c._count?.quotations ?? 0}</Td>
                   <Td align="center">{c._count?.projects ?? 0}</Td>
                   <Td>

@@ -14,11 +14,17 @@ import { date, dateTime, money, num, pct } from '../lib/format';
 import { downloadFile, slug, stamp } from '../lib/transfer';
 import type { Invoice, Note, Project, Quotation } from '../lib/types';
 import { PRODUCT_NAME } from '../lib/product';
+import { itemCodeLabel, taxLabel } from '../lib/format';
 
-const NEXT_STATUS: Record<string, { value: string; label: string }[]> = {
+/*
+ * The statuses are the same whatever the document is called, but the words are
+ * not: a quotation is accepted, a statement of work is signed. The line of
+ * business supplies the verb.
+ */
+const nextStatuses = (verb: string): Record<string, { value: string; label: string }[]> => ({
   DRAFT: [{ value: 'SENT', label: 'Mark as sent' }],
   SENT: [
-    { value: 'ACCEPTED', label: 'Mark accepted' },
+    { value: 'ACCEPTED', label: `Mark ${verb.toLowerCase()}` },
     { value: 'REJECTED', label: 'Mark rejected' },
     { value: 'EXPIRED', label: 'Mark expired' },
   ],
@@ -26,7 +32,7 @@ const NEXT_STATUS: Record<string, { value: string; label: string }[]> = {
   REJECTED: [{ value: 'SENT', label: 'Reopen as sent' }],
   EXPIRED: [{ value: 'SENT', label: 'Reopen as sent' }],
   SUPERSEDED: [],
-};
+});
 
 export function QuotationView() {
   const { id } = useParams();
@@ -112,13 +118,16 @@ export function QuotationView() {
               <StatusBadge status={q.status} />
               {q.version > 1 && <Badge tone="violet">Revision v{q.version}</Badge>}
               <Badge dot={q.businessType?.color}>{q.businessType?.name}</Badge>
+              {q.businessType?.agreementLabel && q.businessType.agreementLabel !== 'Quotation' && (
+                <Badge tone="slate">{q.businessType.agreementLabel}</Badge>
+              )}
             </div>
             <p className="mt-1 text-sm text-slate-600">{q.title}</p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {NEXT_STATUS[q.status]?.map((s) => (
+          {nextStatuses(q.businessType?.agreementVerb || 'Accepted')[q.status]?.map((s) => (
             <Button key={s.value} size="sm" disabled={busy} onClick={() => changeStatus(s.value)}>
               {s.label}
             </Button>
@@ -170,7 +179,7 @@ export function QuotationView() {
                     <Th>Unit</Th>
                     <Th align="right">Qty</Th>
                     <Th align="right">Rate</Th>
-                    <Th align="right">GST</Th>
+                    <Th align="right">{taxLabel()}</Th>
                     <Th align="right">Amount</Th>
                   </tr>
                 </thead>
@@ -181,7 +190,7 @@ export function QuotationView() {
                       <Td>
                         <p className="font-medium text-slate-900">{item.description}</p>
                         {item.specNote && <p className="mt-0.5 text-xs text-slate-500">{item.specNote}</p>}
-                        {item.hsnSac && <p className="mt-0.5 text-xs text-slate-400">HSN/SAC {item.hsnSac}</p>}
+                        {item.hsnSac && <p className="mt-0.5 text-xs text-slate-400">{itemCodeLabel()} {item.hsnSac}</p>}
                       </Td>
                       <Td>{item.unit}</Td>
                       <Td align="right">{num(item.quantity)}</Td>

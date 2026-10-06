@@ -682,6 +682,40 @@ a staffing resource, a consulting day, a one-off service. It numbers as `GEN`, p
 under **Services Summary**, and has a short pipeline, so you can raise a quotation or an invoice
 without inventing a line of business for it.
 
+### What your agreement document is called
+
+**Settings → Lines of business → edit → Agreement document.**
+
+Interior work is quoted: you send a **Quotation**, the client **accepts** it,
+and it is **valid until** a date. Services usually are not. Staffing, time and
+material and fixed-bid work run on a **Statement of Work** or a **Contract**:
+the client **signs** it, and it runs **over a period** rather than expiring.
+
+Each line of business says which it is — the document name, the word for the
+client agreeing, and whether the date is an expiry or the end of a period. The
+name is what prints as the heading, so the client sees "STATEMENT OF WORK", and
+the signature block reads "Signed & confirmed by client".
+
+Underneath it is still one document type, so numbering, the editor, the PDF and
+the pipeline are the same everywhere. Only the words change.
+
+**General** ships as a Statement of Work, signed, over a period. The other
+lines stay quotations. Change any of them whenever you like.
+
+### Invoicing without a quotation
+
+**Invoices → New invoice.**
+
+Against a statement of work you invoice as the work is delivered — monthly for
+time and material, on milestones for fixed bid — and there is no quotation in
+between. This raises an invoice on its own: pick the client, add the lines,
+and reference the client's PO or SOW number so they can reconcile it.
+
+The quotation route is unchanged and is still the better one when there is a
+quotation: **Raise invoice** on an accepted quotation carries the lines across,
+tracks what has already been billed, and refuses to invoice past the contract
+value.
+
 ### Switching a line of business off
 
 Each line has a toggle. Switching one off hides it from the new-quotation picker and from the
@@ -693,6 +727,83 @@ Two things are refused rather than done quietly:
 - **A line with work in flight.** If it still has open quotations or active projects, the app says
   so and names the counts. Close or archive them first.
 - **General.** It is the fallback line and is always on.
+
+### The country you operate from
+
+**Settings → Company & documents → Country.**
+
+One choice decides a great deal: the currency every figure is shown in, the
+list of states or regions on an address, which statutory identifiers you are
+asked for, how tax is worked out, when your accounting year turns over, and
+whether an amount in words reads in lakh and crore or million and billion.
+
+| | India | United States | New Zealand |
+|---|---|---|---|
+| Currency | ₹ INR | $ USD | $ NZD |
+| Regions | 36 states with GST codes | 50 states, DC and Puerto Rico | 17 regions |
+| Postcode | PIN code | ZIP code | Postcode |
+| Identifiers | GSTIN, CIN, PAN, TAN | yours, under Other identifiers | yours, under Other identifiers |
+| Tax | CGST + SGST, or IGST | Sales tax, starting at 0% | GST 15% |
+| Year | April to March | January to December | April to March |
+| Amounts in words | lakh, crore | million, billion | million, billion |
+
+A fresh install picks the country of the Mac it is installed on, and falls back
+to India. Changing it later affects new documents and what you see on screen —
+it does not go back and recompute tax on anything already issued.
+
+Three countries are set up. Ask and more can be added; each is one entry in a
+list.
+
+### Payment details
+
+**Settings → Bank & terms.**
+
+How a client is told where to send the money differs by country in kind, not
+just in name — so the form asks for what applies and nothing else:
+
+| India | United States | New Zealand |
+|---|---|---|
+| Account name | Account name | Account name |
+| Bank, Branch | Bank | Bank |
+| Account number | Account number | Account number |
+| IFSC | **Account type** — checking or savings | *(bank and branch are inside the account number)* |
+| UPI ID | **Routing number (ABA)** | |
+| SWIFT / BIC | SWIFT / BIC | SWIFT / BIC |
+
+SWIFT is on every country because an overseas client paying by wire needs it
+wherever your account is. A field you leave blank is never printed, so nothing
+empty reaches a client.
+
+> US banks sometimes use a different routing number for wires than for ACH.
+> Put the one you want to be paid on.
+
+### How tax is decided
+
+From **both** countries — yours and your client's — because that is what
+determines it:
+
+| You are in | Your client is in | What prints |
+|---|---|---|
+| India | the same Indian state | CGST + SGST |
+| India | a different Indian state | IGST |
+| India | another country | nothing — zero-rated, with an export note |
+| United States | United States | Sales tax at whatever rate the item carries |
+| New Zealand | New Zealand | GST |
+| anywhere | another country | nothing — zero-rated |
+
+So an Indian company invoicing a US client gets a clean export invoice with no
+GST on the face of it, and a US company invoicing a US client never sees an
+Indian tax line.
+
+Set the client's country on the client record. A client with no country is
+taken to be in your country, which is what every client created before this
+existed, and the common case besides.
+
+> **On the rates.** The app carries the mechanics and the ordinary headline
+> rate, not tax advice. US sales tax is set by state and often by city, and
+> most states do not tax professional services at all — so the United States
+> starts at 0% and you set what applies, per item. Check any rate with your
+> accountant.
 
 ### Other identifiers
 

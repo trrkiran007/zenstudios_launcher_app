@@ -7,6 +7,8 @@ import { prisma } from '../db.js';
 import { h, parsePatch } from '../lib/http.js';
 import { isPdfEngineAvailable } from '../lib/pdf.js';
 import { uploadLogo } from '../lib/upload.js';
+import { useCountry } from '../lib/money.js';
+import { isKnownCountry } from '../data/countries.js';
 
 export const settingsRouter = Router();
 
@@ -24,7 +26,13 @@ const orgSchema = z.object({
   state: z.string().nullish(),
   stateCode: z.string().nullish(),
   pincode: z.string().nullish(),
+  bankRouting: z.string().nullish(),
+  bankAccountType: z.string().nullish(),
+  bankSwift: z.string().nullish(),
   country: z.string().optional(),
+  countryCode: z.string().length(2).toUpperCase().refine(isKnownCountry, {
+    message: 'That country is not set up yet. India, the United States and New Zealand are.',
+  }).optional(),
   email: z.string().nullish(),
   phone: z.string().nullish(),
   altPhone: z.string().nullish(),
@@ -57,8 +65,21 @@ export async function printableCustomFields() {
 
 export async function getOrg() {
   const existing = await prisma.organization.findUnique({ where: { id: 'org' } });
-  if (existing) return existing;
-  return prisma.organization.create({ data: { id: 'org' } });
+  const org =
+    existing ??
+    (await prisma.organization.create({
+      data: {
+        id: 'org',
+        // First run only. The Mac's own region if the app knows that country,
+        // India otherwise — which is what it has always been.
+        countryCode: isKnownCountry(process.env.ZEN_COUNTRY) ? process.env.ZEN_COUNTRY!.toUpperCase() : 'IN',
+      },
+    }));
+  // Money, written amounts and the accounting year all follow the country the
+  // business is set up in. Setting it here means a change under Settings takes
+  // effect on the very next document, with nothing to restart.
+  useCountry(org.countryCode);
+  return org;
 }
 
 settingsRouter.get(

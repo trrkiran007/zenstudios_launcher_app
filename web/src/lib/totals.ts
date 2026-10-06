@@ -1,4 +1,33 @@
-import type { QuotationSection } from './types';
+import type { CountryProfile, QuotationSection, TaxTreatment } from './types';
+
+/**
+ * The same decision the server makes in lib/tax.ts, repeated here so the editor
+ * can show live totals without a round trip. The server figure is always the
+ * one that is saved.
+ */
+function resolveTaxTreatment(
+  seller: CountryProfile | null | undefined,
+  buyerCountry: string | null | undefined,
+  sellerState: string | null | undefined,
+  buyerState: string | null | undefined,
+): TaxTreatment {
+  const label = seller?.taxLabel ?? 'GST';
+  const system = seller?.taxSystem ?? 'INDIA_GST';
+  const buyer = (buyerCountry || '').trim().toUpperCase();
+
+  if (seller && buyer && buyer !== seller.code) {
+    return { kind: 'EXPORT', label, splitCgstSgst: false, zeroRated: true, note: seller.exportNote };
+  }
+  if (system === 'NONE') return { kind: 'NONE', label, splitCgstSgst: false, zeroRated: false };
+  if (system === 'SINGLE') return { kind: 'SINGLE', label, splitCgstSgst: false, zeroRated: false };
+
+  const a = (sellerState || '').trim();
+  const b = (buyerState || '').trim();
+  const intra = !a || !b ? true : a === b;
+  return intra
+    ? { kind: 'INDIA_INTRA', label, splitCgstSgst: true, zeroRated: false }
+    : { kind: 'INDIA_INTER', label: `I${label}`, splitCgstSgst: false, zeroRated: false };
+}
 
 export const round2 = (n: number) =>
   Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : 0;
@@ -20,6 +49,9 @@ export function computeTotals(input: {
   discountValue: number;
   supplierStateCode?: string | null;
   placeOfSupplyCode?: string | null;
+  /** The country profiles, and who is selling to whom. See lib/tax.ts on the server. */
+  seller?: CountryProfile | null;
+  buyerCountry?: string | null;
 }) {
   const items = input.sections.flatMap((s) => s.items);
   const amounts = items.map(lineAmount);
@@ -32,9 +64,9 @@ export function computeTotals(input: {
 
   const taxableValue = round2(subtotal - discountAmount);
 
-  const supplier = (input.supplierStateCode || '').trim();
-  const place = (input.placeOfSupplyCode || '').trim();
-  const isIntraState = !place || !supplier ? true : place === supplier;
+  const treatment = resolveTaxTreatment(input.seller, input.buyerCountry, input.supplierStateCode, input.placeOfSupplyCode);
+  const isIntraState = treatment.splitCgstSgst;
+  const untaxed = treatment.zeroRated || treatment.kind === 'NONE';
 
   const bySlab = new Map<number, number>();
   items.forEach((item, i) => {
@@ -47,22 +79,32 @@ export function computeTotals(input: {
   const slabs = [...bySlab.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([gstRate, taxable]) => {
-      const tax = round2(taxable * (gstRate / 100));
+      const tax = untaxed ? 0 : round2(taxable * (gstRate / 100));
       const half = round2(tax / 2);
       return {
         gstRate,
         taxableValue: taxable,
-        cgst: isIntraState ? half : 0,
-        sgst: isIntraState ? round2(tax - half) : 0,
-        igst: isIntraState ? 0 : tax,
+        cgst: treatment.splitCgstSgst ? half : 0,
+        sgst: treatment.splitCgstSgst ? round2(tax - half) : 0,
+        igst: treatment.splitCgstSgst || treatment.kind !== 'INDIA_INTER' ? 0 : tax,
+        tax,
       };
     });
 
   const cgst = round2(slabs.reduce((a, s) => a + s.cgst, 0));
   const sgst = round2(slabs.reduce((a, s) => a + s.sgst, 0));
   const igst = round2(slabs.reduce((a, s) => a + s.igst, 0));
-  const preRound = round2(taxableValue + cgst + sgst + igst);
-  const grandTotal = Math.round(preRound);
+  const totalTax = round2(slabs.reduce((a, s) => a + s.tax, 0));
+  const taxLines: { label: string; amount: number }[] = [];
+  if (treatment.splitCgstSgst) {
+    if (cgst) taxLines.push({ label: `C${treatment.label}`, amount: cgst });
+    if (sgst) taxLines.push({ label: `S${treatment.label}`, amount: sgst });
+  } else if (totalTax) {
+    taxLines.push({ label: treatment.label, amount: totalTax });
+  }
+
+  const preRound = round2(taxableValue + totalTax);
+  const grandTotal = input.seller?.roundTotals === false ? preRound : Math.round(preRound);
 
   const totalCost = round2(
     items.reduce((a, it) => a + (Number(it.costPrice) || 0) * (Number(it.quantity) || 0), 0),
@@ -76,7 +118,7 @@ export function computeTotals(input: {
     cgst,
     sgst,
     igst,
-    totalTax: round2(cgst + sgst + igst),
+    totalTax,
     roundOff: round2(grandTotal - preRound),
     grandTotal,
     totalCost,
@@ -84,5 +126,7 @@ export function computeTotals(input: {
     marginPct: taxableValue > 0 ? round2((grossProfit / taxableValue) * 100) : 0,
     isIntraState,
     slabs,
+    treatment,
+    taxLines,
   };
 }

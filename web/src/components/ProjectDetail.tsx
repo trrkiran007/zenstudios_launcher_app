@@ -5,7 +5,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, useApi } from '../lib/api';
-import { date, dateInput, dateTime, fileSize, money, pct, relative } from '../lib/format';
+import { date, dateInput, dateTime, fileSize, money, pct, relative, taxLabel } from '../lib/format';
 import type { Expense, ProjectDetail as Detail, Task } from '../lib/types';
 import { Attachments } from './Attachments';
 import {
@@ -791,7 +791,7 @@ export function ProjectDetail({
                 </p>
               </div>
             </div>
-            <p className="text-xs text-slate-500">All three figures are before GST.</p>
+            <p className="text-xs text-slate-500">All three figures are before {taxLabel()}.</p>
 
             {billPos.remainingTaxable <= 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
@@ -799,7 +799,7 @@ export function ProjectDetail({
                 client still owes you money, that is a <strong>payment</strong> outstanding, not a new
                 invoice — record what they have paid against the existing invoice and its balance will
                 show what is due. Raising a second tax invoice for the same work would declare the
-                supply twice and pay GST on it twice.
+                supply twice and pay {taxLabel()} on it twice.
               </div>
             )}
 
@@ -832,7 +832,7 @@ export function ProjectDetail({
               </Field>
             )}
             {billMode === 'AMOUNT' && (
-              <Field label="Amount before GST">
+              <Field label={`Amount before ${taxLabel()}`}>
                 <Input type="number" min={1} value={billAmount} onChange={(e) => setBillAmount(Number(e.target.value))} />
               </Field>
             )}
@@ -889,10 +889,10 @@ export function ProjectDetail({
             <Field label="Reference / bill no.">
               <Input value={expenseForm.reference ?? ''} onChange={(e) => setExpenseForm({ ...expenseForm, reference: e.target.value })} />
             </Field>
-            <Field label="Amount (incl. GST)" required>
+            <Field label={`Amount (incl. ${taxLabel()})`} required>
               <Input type="number" step="0.01" value={expenseForm.amount ?? ''} onChange={(e) => setExpenseForm({ ...expenseForm, amount: Number(e.target.value) })} />
             </Field>
-            <Field label="Of which GST" hint="For your input credit tracking">
+            <Field label={`Of which ${taxLabel()}`} hint="For reclaiming it where your rules allow">
               <Input type="number" step="0.01" value={expenseForm.gstAmount ?? ''} onChange={(e) => setExpenseForm({ ...expenseForm, gstAmount: Number(e.target.value) })} />
             </Field>
             <Field label="Payment status">

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { BRANDING_DIR } from '../config.js';
-import { amountInWords, formatINR, round2 } from '../lib/money.js';
+import { activeCountry, amountInWords, formatMoney, round2 } from '../lib/money.js';
 import type { Totals } from '../lib/totals.js';
 
 export type DocOrg = {
@@ -30,6 +30,9 @@ export type DocOrg = {
   bankIfsc?: string | null;
   bankBranch?: string | null;
   upiId?: string | null;
+  bankRouting?: string | null;
+  bankAccountType?: string | null;
+  bankSwift?: string | null;
 };
 
 export type DocParty = {
@@ -62,6 +65,10 @@ export type DocSection = { name: string; notes?: string | null; items: DocItem[]
 
 export type DocumentModel = {
   kind: 'QUOTATION' | 'PROFORMA' | 'TAX_INVOICE';
+  /** What the line of business calls its agreement: Quotation, Statement of Work. */
+  agreementLabel?: string;
+  /** Accepted, Signed, Approved — the word on the signature block. */
+  agreementVerb?: string;
   title: string;
   number: string;
   date: Date;
@@ -76,8 +83,8 @@ export type DocumentModel = {
   totals: Totals;
   showHsn: boolean;
   /**
-   * Print the tax breakdown. When false the document quotes the pre-GST figure
-   * and says GST is extra — used for client-facing quotations where the tax
+   * Print the tax breakdown. When false the document quotes the pre-tax figure
+   * and says tax is extra — used for client-facing quotations where the tax
    * line is a distraction. A tax invoice must never set this false.
    */
   showTax: boolean;
@@ -162,7 +169,7 @@ function itemsTable(model: DocumentModel): string {
       <tr>
         <th class="c-sn">#</th>
         <th class="c-desc">Description</th>
-        ${showHsn ? '<th class="c-hsn">HSN/SAC</th>' : ''}
+        ${showHsn && activeCountry().itemCodeLabel ? `<th class="c-hsn">${esc(activeCountry().itemCodeLabel)}</th>` : ''}
         ${detailed ? '<th class="c-unit">Unit</th><th class="c-num">Qty</th><th class="c-num">Rate</th>' : ''}
         ${detailed && showTax ? '<th class="c-num">GST%</th>' : ''}
         ${showAmounts ? '<th class="c-num">Amount</th>' : ''}
@@ -183,9 +190,9 @@ function itemsTable(model: DocumentModel): string {
             ${it.discountPct ? `<div class="item-spec">Line discount ${round2(it.discountPct)}%</div>` : ''}
           </td>
           ${showHsn ? `<td class="c-hsn">${esc(it.hsnSac || '—')}</td>` : ''}
-          ${detailed ? `<td class="c-unit">${esc(it.unit)}</td><td class="c-num">${qty(it.quantity)}</td><td class="c-num">${formatINR(it.rate)}</td>` : ''}
+          ${detailed ? `<td class="c-unit">${esc(it.unit)}</td><td class="c-num">${qty(it.quantity)}</td><td class="c-num">${formatMoney(it.rate)}</td>` : ''}
           ${detailed && showTax ? `<td class="c-num">${round2(it.gstRate)}%</td>` : ''}
-          ${showAmounts ? `<td class="c-num">${formatINR(it.amount)}</td>` : ''}
+          ${showAmounts ? `<td class="c-num">${formatMoney(it.amount)}</td>` : ''}
         </tr>`,
         )
         .join('');
@@ -199,7 +206,7 @@ function itemsTable(model: DocumentModel): string {
 
       const footer =
         model.showSectionTotals && model.sections.length > 1
-          ? `<tr class="section-total"><td colspan="${cols - 1}">${esc(section.name)} subtotal</td><td class="c-num">${formatINR(
+          ? `<tr class="section-total"><td colspan="${cols - 1}">${esc(section.name)} subtotal</td><td class="c-num">${formatMoney(
               sectionTotal,
             )}</td></tr>`
           : '';
@@ -214,17 +221,18 @@ function itemsTable(model: DocumentModel): string {
 function taxBreakup(model: DocumentModel): string {
   const t = model.totals;
   if (!model.showTax || !t.slabs.length) return '';
+  const split = t.treatment.splitCgstSgst;
   const rows = t.slabs
     .map(
       (s) => `<tr>
         <td>${round2(s.gstRate)}%</td>
-        <td class="c-num">${formatINR(s.taxableValue)}</td>
+        <td class="c-num">${formatMoney(s.taxableValue)}</td>
         ${
-          t.isIntraState
-            ? `<td class="c-num">${formatINR(s.cgst)}</td><td class="c-num">${formatINR(s.sgst)}</td>`
-            : `<td class="c-num" colspan="2">${formatINR(s.igst)}</td>`
+          split
+            ? `<td class="c-num">${formatMoney(s.cgst)}</td><td class="c-num">${formatMoney(s.sgst)}</td>`
+            : `<td class="c-num" colspan="2">${formatMoney(s.tax)}</td>`
         }
-        <td class="c-num">${formatINR(s.cgst + s.sgst + s.igst)}</td>
+        <td class="c-num">${formatMoney(s.tax)}</td>
       </tr>`,
     )
     .join('');
@@ -232,8 +240,10 @@ function taxBreakup(model: DocumentModel): string {
     <table class="tax-breakup">
       <thead>
         <tr>
-          <th>GST rate</th><th class="c-num">Taxable value</th>
-          ${t.isIntraState ? '<th class="c-num">CGST</th><th class="c-num">SGST</th>' : '<th class="c-num" colspan="2">IGST</th>'}
+          <th>${esc(t.treatment.label)} rate</th><th class="c-num">Taxable value</th>
+          ${split
+            ? `<th class="c-num">C${esc(t.treatment.label)}</th><th class="c-num">S${esc(t.treatment.label)}</th>`
+            : `<th class="c-num" colspan="2">${esc(t.treatment.kind === 'INDIA_INTER' ? 'I' + t.treatment.label : t.treatment.label)}</th>`}
           <th class="c-num">Total tax</th>
         </tr>
       </thead>
@@ -251,22 +261,23 @@ function totalsBlock(model: DocumentModel): string {
     // Pre-GST presentation. The headline figure is the taxable value, and the
     // document says so, so nobody can read it as the amount payable.
     return `<table class="totals">
-      ${row('Subtotal', formatINR(t.subtotal))}
-      ${t.discountAmount ? row('Discount', `− ${formatINR(t.discountAmount)}`) : ''}
-      ${row('<b>Total before GST</b>', `<b>${formatINR(t.taxableValue)}</b>`, 'grand')}
-      ${row('GST', 'Extra, as applicable')}
+      ${row('Subtotal', formatMoney(t.subtotal))}
+      ${t.discountAmount ? row('Discount', `− ${formatMoney(t.discountAmount)}`) : ''}
+      ${row(`<b>Total before ${esc(t.treatment.label)}</b>`, `<b>${formatMoney(t.taxableValue)}</b>`, 'grand')}
+      ${row(esc(t.treatment.label), 'Extra, as applicable')}
     </table>`;
   }
 
   return `<table class="totals">
-    ${row('Subtotal', formatINR(t.subtotal))}
-    ${t.discountAmount ? row('Discount', `− ${formatINR(t.discountAmount)}`) : ''}
-    ${row('Taxable value', formatINR(t.taxableValue))}
-    ${t.isIntraState ? row('CGST', formatINR(t.cgst)) + row('SGST', formatINR(t.sgst)) : row('IGST', formatINR(t.igst))}
-    ${t.roundOff ? row('Round off', formatINR(t.roundOff)) : ''}
-    ${row('<b>Grand total</b>', `<b>${formatINR(t.grandTotal)}</b>`, 'grand')}
-    ${model.amountPaid !== undefined ? row('Amount received', `− ${formatINR(model.amountPaid)}`) : ''}
-    ${balance !== null ? row('<b>Balance due</b>', `<b>${formatINR(balance)}</b>`, 'grand') : ''}
+    ${row('Subtotal', formatMoney(t.subtotal))}
+    ${t.discountAmount ? row('Discount', `− ${formatMoney(t.discountAmount)}`) : ''}
+    ${row('Taxable value', formatMoney(t.taxableValue))}
+    ${t.taxLines.map((line) => row(esc(line.label), formatMoney(line.amount))).join('')}
+    ${t.treatment.zeroRated ? row(esc(t.treatment.label), 'Zero-rated') : ''}
+    ${t.roundOff ? row('Round off', formatMoney(t.roundOff)) : ''}
+    ${row('<b>Grand total</b>', `<b>${formatMoney(t.grandTotal)}</b>`, 'grand')}
+    ${model.amountPaid !== undefined ? row('Amount received', `− ${formatMoney(model.amountPaid)}`) : ''}
+    ${balance !== null ? row('<b>Balance due</b>', `<b>${formatMoney(balance)}</b>`, 'grand') : ''}
   </table>`;
 }
 
@@ -274,8 +285,12 @@ export function renderDocumentHtml(model: DocumentModel): string {
   const { org, party } = model;
   const brand = org.brandColor || '#16A34A';
   const logo = logoDataUri(org);
+  // A quotation is whatever its line of business calls it — a Statement of
+  // Work for services, a Quotation for interiors. The client reads this word.
+  const agreement = model.agreementLabel?.trim() || 'Quotation';
+  const taxInvoice = activeCountry().taxSystem === 'INDIA_GST' ? 'Tax Invoice' : 'Invoice';
   const heading =
-    model.kind === 'QUOTATION' ? 'Quotation' : model.kind === 'PROFORMA' ? 'Proforma Invoice' : 'Tax Invoice';
+    model.kind === 'QUOTATION' ? agreement : model.kind === 'PROFORMA' ? 'Proforma Invoice' : taxInvoice;
 
   const orgAddress = [
     org.addressLine1,
@@ -293,13 +308,22 @@ export function renderDocumentHtml(model: DocumentModel): string {
     org.pan ? `<b>PAN:</b> ${esc(org.pan)}` : null,
   ].filter(Boolean);
 
-  const bankRows = [
-    ['Account name', org.bankAccountName],
-    ['Bank', [org.bankName, org.bankBranch].filter(Boolean).join(' — ')],
-    ['Account no.', org.bankAccountNo],
-    ['IFSC', org.bankIfsc],
-    ['UPI', org.upiId],
-  ].filter(([, v]) => v) as [string, string][];
+  /*
+   * The payment block prints what the country actually uses. An Indian invoice
+   * carries an IFSC and a UPI id; a US one carries a routing number and says
+   * whether the account is checking or savings. A field with nothing in it is
+   * left out, so switching country never prints an empty row.
+   */
+  const bankRows = activeCountry()
+    .bankFields.map((f) => {
+      const value =
+        f.key === 'bankName'
+          ? [org.bankName, org.bankBranch].filter(Boolean).join(' — ')
+          : (org[f.key] ?? '');
+      return [f.label, String(value ?? '').trim()] as [string, string];
+    })
+    // The branch rides along with the bank name, so never on its own.
+    .filter(([label, v]) => v && label !== 'Branch');
 
   return `<!doctype html>
 <html lang="en">
@@ -419,15 +443,21 @@ export function renderDocumentHtml(model: DocumentModel): string {
           : ''
       }
       ${model.reference ? `<div><b>${esc(model.reference.label)}</b> ${esc(model.reference.value)}</div>` : ''}
-      <div><b>Place of supply</b> ${esc(
-        [party.state, party.stateCode].filter(Boolean).join(' — ') || org.state || '—',
-      )}</div>
+      ${
+        // Place of supply is an Indian GST concept — it decides CGST/SGST
+        // against IGST. On a US or NZ invoice it means nothing, so it is left off.
+        activeCountry().taxSystem === 'INDIA_GST'
+          ? `<div><b>Place of supply</b> ${esc(
+              [party.state, party.stateCode].filter(Boolean).join(' — ') || org.state || '—',
+            )}</div>`
+          : ''
+      }
     </div>
   </div>
 
   <div class="parties">
     <div class="card">
-      <h3>${model.kind === 'QUOTATION' ? 'Quotation for' : 'Bill to'}</h3>
+      <h3>${model.kind === 'QUOTATION' ? `${esc(agreement)} for` : 'Bill to'}</h3>
       <div class="pname">${esc(party.name)}</div>
       ${partyBlock(party)}
     </div>
@@ -448,7 +478,8 @@ export function renderDocumentHtml(model: DocumentModel): string {
   <div class="foot">
     <div class="foot-left">
       ${taxBreakup(model)}
-      <div class="words"><b>Amount in words:</b> ${esc(amountInWords(model.showTax ? model.totals.grandTotal : model.totals.taxableValue))}${model.showTax ? '' : ' (before GST)'}</div>
+      ${model.totals.treatment.note ? `<div class="words">${esc(model.totals.treatment.note)}</div>` : ''}
+      <div class="words"><b>Amount in words:</b> ${esc(amountInWords(model.showTax ? model.totals.grandTotal : model.totals.taxableValue))}${model.showTax ? '' : ` (before ${esc(model.totals.treatment.label)})`}</div>
       ${
         bankRows.length
           ? `<div class="block"><h4>Payment details</h4><table class="bank">${bankRows
@@ -469,7 +500,7 @@ export function renderDocumentHtml(model: DocumentModel): string {
     <div style="font-size:9px;color:var(--muted);max-width:80mm">
       ${
         model.kind === 'QUOTATION'
-          ? 'Accepted &amp; confirmed by client<div class="line">Signature / Date</div>'
+          ? `${esc(model.agreementVerb || 'Accepted')} &amp; confirmed by client<div class="line">Signature / Date</div>`
           : 'This is a computer-generated document.'
       }
     </div>
