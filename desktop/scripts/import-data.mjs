@@ -2,7 +2,7 @@
  * Copy the terminal version's data into the desktop app.
  *
  * The two keep separate databases on purpose: <repo>/data for `npm run dev`,
- * and ~/Library/Application Support/ZenStudios/data for the .app. This moves
+ * and the app's own support folder for the .app. This moves
  * everything — quotations, projects, clients, attachments and the logo — from
  * the first into the second, so switching to the desktop app is not a fresh start.
  *
@@ -17,7 +17,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..');
 
 const source = path.join(repoRoot, 'data');
-const target = path.join(os.homedir(), 'Library', 'Application Support', 'ZenStudios', 'data');
+/*
+ * The app keeps data in its original folder where one exists, so this has to
+ * look for that first rather than assume the current product name.
+ */
+const support = path.join(os.homedir(), 'Library', 'Application Support');
+const legacy = path.join(support, 'ZenStudios');
+const target = path.join(fs.existsSync(legacy) ? legacy : path.join(support, 'BlueMount BOS'), 'data');
 
 if (!fs.existsSync(path.join(source, 'app.db'))) {
   console.error(`✗ No database found at ${source}/app.db — nothing to import.`);
@@ -42,4 +48,4 @@ console.log(`\n✓ imported into ${target}`);
 console.log(`  database   : ${(fs.statSync(path.join(target, 'app.db')).size / 1024).toFixed(0)} KB`);
 console.log(`  attachments: ${count(path.join(target, 'uploads'))} file(s)`);
 console.log(`  branding   : ${count(path.join(target, 'branding'))} file(s)`);
-console.log('\nOpen ZenStudios — your company details, clients and documents will be there.\n');
+console.log('\nOpen BOS — your company details, clients and documents will be there.\n');

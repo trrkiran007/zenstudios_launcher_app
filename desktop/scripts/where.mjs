@@ -18,6 +18,6 @@ if (!dmgs.length) {
     console.log(`    ${full}   (${mb} MB)`);
   }
   console.log('\n  Open the folder:  open "' + releaseDir + '"');
-  console.log('  Install:          double-click the .dmg, drag ZenStudios to Applications,');
+  console.log('  Install:          double-click the .dmg, drag BOS to Applications,');
   console.log('                    then right-click the app > Open the first time.\n');
 }
