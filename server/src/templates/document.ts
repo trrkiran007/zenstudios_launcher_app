@@ -260,7 +260,7 @@ function taxBreakup(model: DocumentModel): string {
           <th>${esc(t.treatment.label)} rate</th><th class="c-num">Taxable value</th>
           ${split
             ? `<th class="c-num">C${esc(t.treatment.label)}</th><th class="c-num">S${esc(t.treatment.label)}</th>`
-            : `<th class="c-num" colspan="2">${esc(t.treatment.kind === 'INDIA_INTER' ? 'I' + t.treatment.label : t.treatment.label)}</th>`}
+            : `<th class="c-num" colspan="2">${esc(t.treatment.label)}</th>`}
           <th class="c-num">Total tax</th>
         </tr>
       </thead>
