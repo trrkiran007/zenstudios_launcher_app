@@ -51,6 +51,9 @@ export function ClientForm({
   const save = () =>
     run(async () => {
       const payload = { ...form };
+      // Untouched means "same country as the business". Send nothing rather
+      // than an empty string, which is not a country.
+      if (!payload.countryCode) delete payload.countryCode;
       delete payload._count;
       delete payload.createdAt;
       delete payload.updatedAt;

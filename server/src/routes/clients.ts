@@ -22,8 +22,19 @@ const clientSchema = z.object({
   state: z.string().nullish(),
   stateCode: z.string().nullish(),
   pincode: z.string().nullish(),
-  /** Blank means the same country as the business, which is the common case. */
-  countryCode: z.string().length(2).toUpperCase().nullish(),
+  /*
+   * Blank means the same country as the business, which is the common case.
+   *
+   * A form that has never had the field touched sends an empty string, not an
+   * absent key, and "" is not a two-letter country — so the whole save was
+   * rejected with "Validation failed" and no client could be created at all.
+   * Empty is normalised to null here, at the boundary, rather than being left
+   * for every caller to remember.
+   */
+  countryCode: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+    z.string().length(2).toUpperCase().nullish(),
+  ),
   notes: z.string().nullish(),
   archived: z.boolean().optional(),
 });
