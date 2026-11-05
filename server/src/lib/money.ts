@@ -78,7 +78,12 @@ export function amountInWords(amount: number): string {
   const main = parts.length ? parts.join(' ') : 'Zero';
   const sign = amount < 0 ? 'Minus ' : '';
   const sub = fraction ? ` and ${twoDigits(fraction)} ${active.currencySubName}` : '';
-  return `${sign}${active.currencyName} ${main}${sub} Only`;
+
+  // "Rupees Three Thousand … Only" is how an Indian invoice reads. Everywhere
+  // else the currency follows the number: "Three Thousand … Dollars and …".
+  return active.wordScale === 'indian'
+    ? `${sign}${active.currencyName} ${main}${sub} Only`
+    : `${sign}${main} ${active.currencyName}${sub}`;
 }
 
 /** Crore, lakh, thousand — how an Indian invoice reads. */

@@ -16,7 +16,14 @@ import { countryProfile } from '../data/countries.js';
 
 export type TaxTreatment = {
   kind: 'INDIA_INTRA' | 'INDIA_INTER' | 'SINGLE' | 'EXPORT' | 'NONE';
-  /** What to call it on the document. */
+  /**
+   * What to call this tax on this document, ready to print as it stands.
+   *
+   * It already carries any prefix the case needs — inter-state Indian supply
+   * is "IGST" here, not "GST". Callers print it verbatim; the one that added
+   * its own I produced "IIGST" in the breakup heading. Only the CGST/SGST
+   * split composes on top, and only when splitCgstSgst says to.
+   */
   label: string;
   /** India within one state: half CGST, half SGST. */
   splitCgstSgst: boolean;

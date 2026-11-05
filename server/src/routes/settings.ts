@@ -30,9 +30,14 @@ const orgSchema = z.object({
   bankAccountType: z.string().nullish(),
   bankSwift: z.string().nullish(),
   country: z.string().optional(),
-  countryCode: z.string().length(2).toUpperCase().refine(isKnownCountry, {
-    message: 'That country is not set up yet. India, the United States and New Zealand are.',
-  }).optional(),
+  // Same trap as the client's: an untouched field arrives as "" rather than
+  // absent, and would fail the length check and reject the whole save.
+  countryCode: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().length(2).toUpperCase().refine(isKnownCountry, {
+      message: 'That country is not set up yet. India, the United States and New Zealand are.',
+    }).optional(),
+  ),
   email: z.string().nullish(),
   phone: z.string().nullish(),
   altPhone: z.string().nullish(),
